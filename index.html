@@ -1,0 +1,95 @@
+
+
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>نتسخر ليك في كازا - طلب توصيل</title>
+    <style>
+        body { font-family: Tahoma, sans-serif; background: #f4f6f9; margin: 0; padding: 20px; }
+        .container { max-width: 500px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin: auto; }
+        h2 { color: #333; text-align: center; }
+        label { display: block; margin-top: 10px; font-weight: bold; }
+        input, textarea { width: 100%; padding: 8px; margin-top: 5px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+        button { background: #28a745; color: white; border: none; padding: 10px 15px; width: 100%; margin-top: 20px; font-size: 16px; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #218838; }
+        #result { margin-top: 20px; background: #e9ecef; padding: 10px; border-radius: 4px; display: none; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>طلب توصيل - نتسخر ليك في كازا</h2>
+    
+    <label>اسم الزبون:</label>
+    <input type="text" id="customer_name" value="أمين">
+
+    <label>رقم الهاتف:</label>
+    <input type="text" id="customer_phone" value="0600000000">
+
+    <label>إحداثيات الانطلاق (Pickup Lat, Lng):</label>
+    <div style="display: flex; gap: 10px;">
+        <input type="text" id="pickup_lat" value="33.5731">
+        <input type="text" id="pickup_lng" value="-7.5898">
+    </div>
+
+    <label>إحداثيات الوصول (Dropoff Lat, Lng):</label>
+    <div style="display: flex; gap: 10px;">
+        <input type="text" id="dropoff_lat" value="33.5898">
+        <input type="text" id="dropoff_lng" value="-7.6114">
+    </div>
+
+    <label>ملاحظات:</label>
+    <textarea id="notes">طرد سريع</textarea>
+
+    <button onclick="sendOrder()">حساب الطلب وإرساله</button>
+
+    <div id="result"></div>
+</div>
+
+<script>
+async function sendOrder() {
+    const data = {
+        user_id: "user_123",
+        customer_name: document.getElementById('customer_name').value,
+        customer_phone: document.getElementById('customer_phone').value,
+        recipient_phone: "0700000000",
+        package_type: "طرد",
+        pickup_lat: parseFloat(document.getElementById('pickup_lat').value),
+        pickup_lng: parseFloat(document.getElementById('pickup_lng').value),
+        dropoff_lat: parseFloat(document.getElementById('dropoff_lat').value),
+        dropoff_lng: parseFloat(document.getElementById('dropoff_lng').value),
+        notes: document.getElementById('notes').value
+    };
+
+    try {
+        const response = await fetch('http://127.0.0.1:8000/calculate-and-save-order', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+
+        const result = await response.json();
+        const resDiv = document.getElementById('result');
+        resDiv.style.display = 'block';
+
+        if (response.ok) {
+            resDiv.innerHTML = `<strong>تم الطلب بنجاح!</strong><br> المسافة: ${result.distance_km} كلم<br> الثمن الإجمالي: ${result.total_price} درهم`;
+            resDiv.style.color = 'green';
+        } else {
+            let errorMsg = result.detail;
+            if (typeof errorMsg === 'object') {
+                errorMsg = JSON.stringify(errorMsg);
+            }
+            resDiv.innerHTML = `<strong>خطأ:</strong> ${errorMsg}`;
+            resDiv.style.color = 'red';
+        }
+    } catch (error) {
+        alert("فشل الاتصال بالخادم!");
+    }
+}
+</script>
+
+</body>
+</html>
+
