@@ -1,8 +1,8 @@
 {
-  "name": "نتسخر ليك...كازا",
-  "short_name": "نتسخر ليك",
+  "name": "نتسخر ليك في كازا",
+  "short_name": "نتسخر",
   "description": "خدمة التوصيل السريعة والمقاضي في الدار البيضاء",
-  "start_url": "index.html",
+  "start_url": "/",
   "display": "standalone",
   "background_color": "#0f172a",
   "theme_color": "#10b981",
@@ -10,7 +10,7 @@
   "dir": "rtl",
   "icons": [
     {
-      "src": "https://cauujrnxtqswjzqhphyq.supabase.co/storage/v1/object/public/assets/1789090107575.png",
+      "src": "https://cauujrnxtqswjzqhphya.supabase.co/storage/v1/object/public/assets/1789090107575.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
