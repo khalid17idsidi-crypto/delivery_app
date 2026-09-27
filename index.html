@@ -63,7 +63,7 @@ async function sendOrder() {
     };
 
     try {
-        const response = await fetch('http://127.0.0.1:8000/calculate-and-save-order', {
+        const response = await fetch('http://deliveryapp-production-51af.up.railway.app/calculate-and-save-order', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
