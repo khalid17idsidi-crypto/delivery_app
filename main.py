@@ -1,17 +1,10 @@
-
-
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-import requests
-from supabase import create_client, Client
-# 1. إعداد تطبيق FastAPi
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import requests
 from supabase import create_client, Client
 
-# 1. إعداد تطبيق FastAPI
+# 1. إعداد تطبيق FastAPI والـ CORS
 app = FastAPI(title="Delivery Pricing API")
 
 app.add_middleware(
@@ -22,21 +15,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 2. (قيمك الحقيقية) إعداد الاتصال بـ Supabase
-SUPABASE_URL = "https://cauujrnxtqswjzqhphyq.supabase.co"
-SUPABASE_KEY = "..."
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# 2. إعداد الاتصال بـ Supabase (قيمك الحقيقية)
-SUPABASE_URL = "https://cauujrnxtqswjzqhphyq.supabase.co"
+# 2. إعداد الاتصال بـ Supabase (القيم الحقيقية)
+SUPABASE_URL = "https://cauujrnxtqswjzanphyq.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNhdXVqcm54dHFzd2p6cWhwaHlxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzNDEwNDMsImV4cCI6MjEwMzkxNzA0M30.xIwYyOcOaH-3VEkfuf2T73tHMRn3oAL2_RjNNPueQKU"
-
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
@@ -63,7 +44,7 @@ def get_address_from_coords(lat, lng):
     except:
         return f"{lat}, {lng}"
 
-# 4. الـ Endpoint الخاص بالطلب
+# 4. الـ Endpoint الوحيد والموحد للطلب
 @app.post("/create-order")
 def create_order(order: OrderRequest):
     try:
@@ -73,9 +54,13 @@ def create_order(order: OrderRequest):
         
         # حساب المسافة بـ OSRM
         osrm_url = f"http://router.project-osrm.org/route/v1/driving/{order.pickup_lng},{order.pickup_lat};{order.dropoff_lng},{order.dropoff_lat}?overview=false"
-        response = requests.get(osrm_url).json()
+        response = requests.get(osrm_url, timeout=5)
+        data = response.json()
         
-        distance_meters = response['routes'][0]['distance']
+        if response.status_code != 200 or not data.get("routes"):
+            raise HTTPException(status_code=400, detail="فشل في حساب المسافة عبر الخرائط")
+        
+        distance_meters = data['routes'][0]['distance']
         distance_km = round(distance_meters / 1000.0, 2)
         
         # منطق التسعير
@@ -124,65 +109,4 @@ def create_order(order: OrderRequest):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-import requests
-
-# نموذج بيانات الطلب القادم من الموبايل
-class OrderRequest(BaseModel):
-    pickup_lat: float
-    pickup_lng: float
-    dropoff_lat: float
-    dropoff_lng: float
-    user_id: str
-    customer_name: str
-    customer_phone: str
-    note: str = ""
-
-@app.post("/calculate-and-save-order")
-def calculate_and_save_order(order: OrderRequest):
-    try:
-        # 1. حساب المسافة عبر خدمة OSRM
-        osrm_url = f"http://router.project-osrm.org/route/v1/driving/{order.pickup_lng},{order.pickup_lat};{order.dropoff_lng},{order.dropoff_lat}?overview=false"
-        response = requests.get(osrm_url, timeout=5)
-        data = response.json()
-        
-        if response.status_code != 200 or not data.get("routes"):
-            raise HTTPException(status_status=400, detail="فشل في حساب المسافة عبر الخرائط")
-        
-        distance_meters = data["routes"][0]["distance"]
-        distance_km = distance_meters / 1000.0
-        
-        # 2. حساب التسعيرة (مثال: قاعدة انطلاق + ثمن كل كيلومتر في كازا)
-        base_fare = 10.0  # التعريفة الأساسية بالدرهم
-        price_per_km = 5.0  # ثمن الكيلومتر
-        total_price = base_fare + (distance_km * price_per_km)
-        
-        # 3. حفظ الطلب في جدول Supabase
-        order_data = {
-            "user_id": order.user_id,
-            "customer_name": order.customer_name,
-            "customer_phone": order.customer_phone,
-            "pickup_lat": order.pickup_lat,
-            "pickup_lng": order.pickup_lng,
-            "dropoff_lat": order.dropoff_lat,
-            "dropoff_lng": order.dropoff_lng,
-            "distance_km": round(distance_km, 2),
-            "total_price": round(total_price, 2),
-            "note": order.note,
-            "status": "pending"
-        }
-        
-        supabase_response = supabase.table("orders").insert(order_data).execute()
-        
-        return {
-            "status": "success",
-            "distance_km": round(distance_km, 2),
-            "total_price": round(total_price, 2),
-            "data": supabase_response.data
-        }
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
 
