@@ -15,8 +15,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 2. إعداد الاتصال بـ Supabase (القيم الحقيقية)
-SUPABASE_URL = "https://cauujrnxtqswjzanphyq.supabase.co"
+# 2. إعداد الاتصال بـ Supabase (تم تصحيح الرابط هنا بدقة)
+SUPABASE_URL = "https://cauujrnxtqswjzqhphyq.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNhdXVqcm54dHFzd2p6cWhwaHlxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzNDEwNDMsImV4cCI6MjEwMzkxNzA0M30.xIwYyOcOaH-3VEkfuf2T73tHMRn3oAL2_RjNNPueQKU"
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
@@ -34,7 +34,7 @@ class OrderRequest(BaseModel):
     package_type: str = "طرد"
     notes: str = ""
 
-# نموذج البيانات لقبول الطلب (يتقبل driver_id أو courier_id تفادياً لأخطاء 422)
+# نموذج البيانات لقبول الطلب
 class AcceptOrderRequest(BaseModel):
     order_id: str
     driver_id: str = None
@@ -116,7 +116,6 @@ def create_order(order: OrderRequest):
 @app.post("/accept-order")
 def accept_order(data: AcceptOrderRequest):
     try:
-        # تحديد معرف الموصل أيا كان المتغير المرسل
         the_driver_id = data.driver_id or data.courier_id
         
         if not the_driver_id:
