@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import requests
+import time
 from supabase import create_client, Client
 
 app = FastAPI(title="Delivery Pricing API")
@@ -14,7 +15,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-SUPABASE_URL = "https://cauujrnxtqswjzanphyq.supabase.co"
+SUPABASE_URL = "https://cauujrnxtqswjzqhphyq.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNhdXVqcm54dHFzd2p6cWhwaHlxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzNDEwNDMsImV4cCI6MjEwMzkxNzA0M30.xIwYyOcOaH-3VEkfuf2T73tHMRn3oAL2_RjNNPueQKU"
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
@@ -36,12 +37,28 @@ class AcceptOrderRequest(BaseModel):
     driver_id: str = None
     courier_id: str = None
 
+# دالة هندسية آمنة للتعامل مع أي طلبيات خارجية مع إعادة المحاولة التلقائية (Retry Mechanism)
+def execute_with_retry(func, retries=3, delay=1):
+    for attempt in range(retries):
+        try:
+            return func()
+        except Exception as e:
+            error_str = str(e)
+            if "Name or service not known" in error_str or "Temporary failure" in error_str:
+                if attempt < retries - 1:
+                    time.sleep(delay)
+                    continue
+            raise e
+
 def get_address_from_coords(lat, lng):
-    try:
+    def _request():
         url = f"https://nominatim.openstreetmap.org/reverse?lat={lat}&lon={lng}&format=json"
         headers = {'User-Agent': 'DeliveryApp/1.0'}
-        res = requests.get(url, headers=headers, timeout=3).json()
-        return res.get('display_name', f"{lat}, {lng}")
+        res = requests.get(url, headers=headers, timeout=4)
+        return res.json().get('display_name', f"{lat}, {lng}")
+    
+    try:
+        return execute_with_retry(_request)
     except:
         return f"{lat}, {lng}"
 
@@ -56,16 +73,22 @@ def create_order(order: OrderRequest):
         pickup_address = get_address_from_coords(p_lat, p_lng)
         dropoff_address = get_address_from_coords(d_lat, d_lng)
         
-        osrm_url = f"http://router.project-osrm.org/route/v1/driving/{p_lng},{p_lat};{d_lng},{d_lat}?overview=false"
-        response = requests.get(osrm_url, timeout=3)
-        data = response.json()
-        
-        if response.status_code != 200 or not data.get("routes"):
+        def _osrm_request():
+            osrm_url = f"http://router.project-osrm.org/route/v1/driving/{p_lng},{p_lat};{d_lng},{d_lat}?overview=false"
+            return requests.get(osrm_url, timeout=4).json()
+
+        try:
+            osrm_data = execute_with_retry(_osrm_request)
+        except:
+            osrm_data = {}
+
+        if not osrm_data.get("routes"):
             distance_km = 3.5
         else:
-            distance_meters = data['routes'][0]['distance']
+            distance_meters = osrm_data['routes'][0]['distance']
             distance_km = round(distance_meters / 1000.0, 2)
         
+        # منطق التسعير الدقيق
         if distance_km < 3.0:
             total_price = 20.0
         elif 3.0 <= distance_km <= 9.0:
@@ -96,7 +119,7 @@ def create_order(order: OrderRequest):
             "status": "pending"
         }
         
-        db_response = supabase.table("orders").insert(order_data).execute()
+        db_response = execute_with_retry(lambda: supabase.table("orders").insert(order_data).execute())
         
         return {
             "status": "success",
@@ -118,15 +141,18 @@ def create_order(order: OrderRequest):
 def accept_order(data: AcceptOrderRequest):
     try:
         the_driver_id = data.driver_id or data.courier_id
-        
         if not the_driver_id:
             raise HTTPException(status_code=400, detail="معرف الموصل مفقود")
 
-        db_response = supabase.table("orders").update({
-            "status": "assigned",
-            "driver_id": the_driver_id,
-            "courier_id": the_driver_id
-        }).eq("id", data.order_id).execute()
+        # استخدام دالة إعادة المحاولة لحل مشاكل انقطاع الـ DNS المؤقت أثناء التحديث
+        def _db_update():
+            return supabase.table("orders").update({
+                "status": "assigned",
+                "driver_id": the_driver_id,
+                "courier_id": the_driver_id
+            }).eq("id", data.order_id).execute()
+
+        db_response = execute_with_retry(_db_update)
         
         return {
             "status": "success",
@@ -135,4 +161,4 @@ def accept_order(data: AcceptOrderRequest):
         }
     except Exception as e:
         print("CRITICAL ERROR IN ACCEPT ORDER:", str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
