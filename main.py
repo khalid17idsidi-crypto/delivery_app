@@ -21,7 +21,7 @@ SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# 3. نموذج البيانات القادمة من الموبايل
+# 3. نموذج البيانات القادمة من الموبايل لإنشاء الطلب
 class OrderRequest(BaseModel):
     pickup_lat: float
     pickup_lng: float
@@ -34,6 +34,11 @@ class OrderRequest(BaseModel):
     package_type: str = "طرد"
     notes: str = ""
 
+# نموذج البيانات القادمة لقبول الطلب من الموصل
+class AcceptOrderRequest(BaseModel):
+    order_id: str
+    courier_id: str
+
 # دالة جلب العنوان من Nominatim
 def get_address_from_coords(lat, lng):
     try:
@@ -44,7 +49,7 @@ def get_address_from_coords(lat, lng):
     except:
         return f"{lat}, {lng}"
 
-# 4. الـ Endpoint الوحيد والموحد للطلب
+# 4. الـ Endpoint لإنشاء الطلب
 @app.post("/create-order")
 def create_order(order: OrderRequest):
     try:
@@ -110,3 +115,20 @@ def create_order(order: OrderRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# 5. الـ Endpoint الجديد لقبول الطلب من طرف الموصل
+@app.post("/accept-order")
+def accept_order(data: AcceptOrderRequest):
+    try:
+        # تحديث حالة الطلب في جدول orders في قاعدة بيانات Supabase
+        db_response = supabase.table("orders").update({
+            "status": "accepted",
+            "courier_id": data.courier_id
+        }).eq("id", data.order_id).execute()
+        
+        return {
+            "status": "success",
+            "message": "تم قبول الطلب بنجاح",
+            "data": db_response.data
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
