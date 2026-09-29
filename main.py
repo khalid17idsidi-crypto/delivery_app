@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 import requests
 from supabase import create_client, Client
 
@@ -19,7 +19,6 @@ SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# نموذج مرن جداً لتقبل الإحداثيات بأي صيغة يرسلها الهاتف
 class OrderRequest(BaseModel):
     pickup_lat: float = 33.5731
     pickup_lng: float = -7.5898
@@ -49,7 +48,6 @@ def get_address_from_coords(lat, lng):
 @app.post("/create-order")
 def create_order(order: OrderRequest):
     try:
-        # التأكد من صحة الإحداثيات واستخدام قيم افتراضية لمدينة الدار البيضاء إذا كانت فارغة
         p_lat = order.pickup_lat if order.pickup_lat != 0 else 33.5731
         p_lng = order.pickup_lng if order.pickup_lng != 0 else -7.5898
         d_lat = order.dropoff_lat if order.dropoff_lat != 0 else 33.5900
@@ -58,18 +56,16 @@ def create_order(order: OrderRequest):
         pickup_address = get_address_from_coords(p_lat, p_lng)
         dropoff_address = get_address_from_coords(d_lat, d_lng)
         
-        # حساب المسافة الفعلية عبر OSRM
         osrm_url = f"http://router.project-osrm.org/route/v1/driving/{p_lng},{p_lat};{d_lng},{d_lat}?overview=false"
         response = requests.get(osrm_url, timeout=3)
         data = response.json()
         
         if response.status_code != 200 or not data.get("routes"):
-            distance_km = 3.5  # مسافة افتراضية منطقية في حال انقطاع الخريطة المؤقت
+            distance_km = 3.5
         else:
             distance_meters = data['routes'][0]['distance']
             distance_km = round(distance_meters / 1000.0, 2)
         
-        # منطق التسعير الصحيح والدقيق حسب المسافة
         if distance_km < 3.0:
             total_price = 20.0
         elif 3.0 <= distance_km <= 9.0:
