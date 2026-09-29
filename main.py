@@ -37,7 +37,6 @@ class AcceptOrderRequest(BaseModel):
     driver_id: str = None
     courier_id: str = None
 
-# دالة هندسية آمنة للتعامل مع أي طلبيات خارجية مع إعادة المحاولة التلقائية (Retry Mechanism)
 def execute_with_retry(func, retries=3, delay=1):
     for attempt in range(retries):
         try:
@@ -88,7 +87,6 @@ def create_order(order: OrderRequest):
             distance_meters = osrm_data['routes'][0]['distance']
             distance_km = round(distance_meters / 1000.0, 2)
         
-        # منطق التسعير الدقيق
         if distance_km < 3.0:
             total_price = 20.0
         elif 3.0 <= distance_km <= 9.0:
@@ -144,12 +142,11 @@ def accept_order(data: AcceptOrderRequest):
         if not the_driver_id:
             raise HTTPException(status_code=400, detail="معرف الموصل مفقود")
 
-        # استخدام دالة إعادة المحاولة لحل مشاكل انقطاع الـ DNS المؤقت أثناء التحديث
+        # التحديث يتم فقط باستخدام عمود driver_id الموجود في الجدول فعلياً
         def _db_update():
             return supabase.table("orders").update({
                 "status": "assigned",
-                "driver_id": the_driver_id,
-                "courier_id": the_driver_id
+                "driver_id": the_driver_id
             }).eq("id", data.order_id).execute()
 
         db_response = execute_with_retry(_db_update)
