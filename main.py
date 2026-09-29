@@ -34,10 +34,11 @@ class OrderRequest(BaseModel):
     package_type: str = "طرد"
     notes: str = ""
 
-# نموذج البيانات القادمة لقبول الطلب من الموصل
+# نموذج البيانات لقبول الطلب (يتقبل driver_id أو courier_id تفادياً لأخطاء 422)
 class AcceptOrderRequest(BaseModel):
     order_id: str
-    driver_id: str
+    driver_id: str = None
+    courier_id: str = None
 
 # دالة جلب العنوان من Nominatim
 def get_address_from_coords(lat, lng):
@@ -109,22 +110,22 @@ def create_order(order: OrderRequest):
             }
         }
     except Exception as e:
-        print("CRITICAL ERROR IN CREATE ORDER:", str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
 # 5. الـ Endpoint لقبول الطلب من طرف الموصل
 @app.post("/accept-order")
 def accept_order(data: AcceptOrderRequest):
     try:
-        print(f"Trying to accept order ID: {data.order_id} for driver ID: {data.driver_id}")
+        # تحديد معرف الموصل أيا كان المتغير المرسل
+        the_driver_id = data.driver_id or data.courier_id
         
-        # تنفيذ التحديث في جدول orders
+        if not the_driver_id:
+            raise HTTPException(status_code=400, detail="معرف الموصل مفقود")
+
         db_response = supabase.table("orders").update({
             "status": "assigned",
-            "driver_id": data.driver_id
+            "driver_id": the_driver_id
         }).eq("id", data.order_id).execute()
-        
-        print("Database update response:", db_response)
         
         return {
             "status": "success",
@@ -132,5 +133,5 @@ def accept_order(data: AcceptOrderRequest):
             "data": db_response.data
         }
     except Exception as e:
-        print("CRITICAL ERROR IN ACCEPT ORDER:", str(e))
+        print("Error in accept-order:", str(e))
         raise HTTPException(status_code=500, detail=str(e))
