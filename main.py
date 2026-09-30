@@ -4,7 +4,7 @@ from pydantic import BaseModel
 import requests
 from supabase import create_client, Client
 
-app = FastAPI(title="Delivery Pricing API")
+app = FastAPI(title="Delivery Tracking & Routing API - Python Backend")
 
 app.add_middleware(
     CORSMiddleware,
@@ -24,7 +24,7 @@ class OrderRequest(BaseModel):
     pickup_lng: float
     dropoff_lat: float = None
     dropoff_lng: float = None
-    dropoff_address_text: str = "" # استقبال العنوان النصي مباشرة من الزبون لتوليد الإحداثيات عند الحاجة
+    dropoff_address_text: str = ""
     user_id: str = "user_123"
     customer_name: str = "أمين"
     customer_phone: str = "0600000000"
@@ -37,7 +37,6 @@ class AcceptOrderRequest(BaseModel):
     driver_id: str = None
     courier_id: str = None
 
-# نموذج البيانات القادمة لتحديث الموقع الحي للموصل
 class DriverLocationUpdate(BaseModel):
     order_id: str
     driver_id: str
@@ -53,7 +52,6 @@ def get_address_from_coords(lat, lng):
     except:
         return f"{lat}, {lng}"
 
-# دالة تحويل العنوان النصي إلى إحداثيات (Lat, Lng) في السيرفر تلقائياً
 def get_coords_from_address(address_text):
     try:
         query = address_text if "الدار البيضاء" in address_text else f"{address_text}، الدار البيضاء، المغرب"
@@ -71,7 +69,6 @@ def create_order(order: OrderRequest):
     try:
         pickup_address = get_address_from_coords(order.pickup_lat, order.pickup_lng)
         
-        # معالجة وتحديد إحداثيات الوصول بدقة (سواء من الدبوس أو استخراجها من النص المكتوب)
         final_dropoff_lat = order.dropoff_lat
         final_dropoff_lng = order.dropoff_lng
         dropoff_address = ""
@@ -93,7 +90,7 @@ def create_order(order: OrderRequest):
             final_dropoff_lng = -7.6114
             dropoff_address = "الدار البيضاء"
 
-        # طلب المسار الفعلي الدقيق (GeoJSON LineString) من خدمة OSRM لرسم خط السير على الخريطة
+        # طلب المسار الحقيقي حصرياً عبر OSRM للبايتون
         osrm_url = f"http://router.project-osrm.org/route/v1/driving/{order.pickup_lng},{order.pickup_lat};{final_dropoff_lng},{final_dropoff_lat}?overview=full&geometries=geojson"
         response = requests.get(osrm_url, timeout=5)
         data = response.json()
@@ -140,14 +137,14 @@ def create_order(order: OrderRequest):
             "distance_km": distance_km,
             "price_mad": total_price,
             "status": "pending",
-            "route_path": route_geometry  # تخزين مسار الرحلة في قاعدة البيانات
+            "route_path": route_geometry  # تخزين المسار الحقيقي في قاعدة البيانات عبر بايتون
         }
         
         db_response = supabase.table("orders").insert(order_data).execute()
         
         return {
             "status": "success",
-            "message": "تم إيجاد المسار وحفظ الطلب بنجاح",
+            "message": "تم حساب المسار الحقيقي وتخزين الطلب بنجاح عبر بايتون",
             "data": {
                 "distance_km": distance_km,
                 "price_mad": total_price,
@@ -175,14 +172,14 @@ def accept_order(data: AcceptOrderRequest):
         
         return {
             "status": "success",
-            "message": "تم قبول الطلب بنجاح",
+            "message": "تم قبول الطلب بنجاح عبر بايتون",
             "data": db_response.data
         }
     except Exception as e:
         print("CRITICAL ERROR IN ACCEPT ORDER:", str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
-# دالة استقبال وتحديث الموقع الحي للموصل في السيرفر
+# دالة بايتون لاستقبال وتحديث الموقع الحقيقي (Live GPS) للموصل لحظة بلحظة
 @app.post("/update-driver-location")
 def update_driver_location(data: DriverLocationUpdate):
     try:
@@ -193,7 +190,7 @@ def update_driver_location(data: DriverLocationUpdate):
         
         return {
             "status": "success",
-            "message": "تم تحديث موقع الموصل بنجاح عبر السيرفر",
+            "message": "تم تحديث موقع الموصل الحقيقي عبر بايتون بنجاح",
             "data": db_response.data
         }
     except Exception as e:
