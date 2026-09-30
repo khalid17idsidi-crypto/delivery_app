@@ -86,15 +86,25 @@ def create_order(order: OrderRequest):
             final_dropoff_lng = -7.6114
             dropoff_address = "الدار البيضاء"
 
-        osrm_url = f"http://router.project-osrm.org/route/v1/driving/{order.pickup_lng},{order.pickup_lat};{final_dropoff_lng},{final_dropoff_lat}?overview=false"
-        response = requests.get(osrm_url, timeout=3)
+        # طلب المسار الفعلي الدقيق (GeoJSON LineString) من خدمة OSRM لرسم خط السير على الخريطة
+        osrm_url = f"http://router.project-osrm.org/route/v1/driving/{order.pickup_lng},{order.pickup_lat};{final_dropoff_lng},{final_dropoff_lat}?overview=full&geometries=geojson"
+        response = requests.get(osrm_url, timeout=5)
         data = response.json()
         
-        if response.status_code != 200 or not data.get("routes"):
-            distance_km = 2.0
-        else:
+        route_geometry = None
+        if response.status_code == 200 and data.get("routes"):
             distance_meters = data['routes'][0]['distance']
             distance_km = round(distance_meters / 1000.0, 2)
+            route_geometry = data['routes'][0]['geometry']
+        else:
+            distance_km = 2.0
+            route_geometry = {
+                "type": "LineString",
+                "coordinates": [
+                    [order.pickup_lng, order.pickup_lat],
+                    [final_dropoff_lng, final_dropoff_lat]
+                ]
+            }
         
         if distance_km < 3.0:
             total_price = 20.0
@@ -122,7 +132,8 @@ def create_order(order: OrderRequest):
             "dropoff_lng": final_dropoff_lng,
             "distance_km": distance_km,
             "price_mad": total_price,
-            "status": "pending"
+            "status": "pending",
+            "route_path": route_geometry  # تخزين مسار الرحلة في قاعدة البيانات
         }
         
         db_response = supabase.table("orders").insert(order_data).execute()
@@ -135,6 +146,7 @@ def create_order(order: OrderRequest):
                 "price_mad": total_price,
                 "pickup_address": pickup_address,
                 "dropoff_address": dropoff_address,
+                "route_path": route_geometry,
                 "order_details": db_response.data
             }
         }
