@@ -15,7 +15,6 @@ app.add_middleware(
 )
 
 SUPABASE_URL = "https://cauujrnxtqswjzqhphyq.supabase.co"
-# تم تحديث المفتاح هنا ليكون مفتاح service_role السري لتجاوز قيود RLS بأمان
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNhdXVqcm54dHFzd2p6cWhwaHlxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4ODM0MTA0MywiZXhwIjoyMTAzOTE3MDQzfQ.17AG1uMHj14ZNVuzp56-9_Z2KYeG50Oo3k__kDbhUok"
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
@@ -23,8 +22,9 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 class OrderRequest(BaseModel):
     pickup_lat: float
     pickup_lng: float
-    dropoff_lat: float
-    dropoff_lng: float
+    dropoff_lat: float = None
+    dropoff_lng: float = None
+    dropoff_address_text: str = "" # استقبال العنوان النصي مباشرة من الزبون لتوليد الإحداثيات عند الحاجة
     user_id: str = "user_123"
     customer_name: str = "أمين"
     customer_phone: str = "0600000000"
@@ -46,13 +46,47 @@ def get_address_from_coords(lat, lng):
     except:
         return f"{lat}, {lng}"
 
+# دالة تحويل العنوان النصي إلى إحداثيات (Lat, Lng) في السيرفر تلقائياً
+def get_coords_from_address(address_text):
+    try:
+        query = address_text if "الدار البيضاء" in address_text else f"{address_text}، الدار البيضاء، المغرب"
+        url = f"https://nominatim.openstreetmap.org/search?q={requests.utils.quote(query)}&format=json&limit=1"
+        headers = {'User-Agent': 'DeliveryApp/1.0'}
+        res = requests.get(url, headers=headers, timeout=3).json()
+        if res and len(res) > 0:
+            return float(res[0]['lat']), float(res[0]['lon'])
+    except Exception as e:
+        print("Geocoding error in backend:", e)
+    return None, None
+
 @app.post("/create-order")
 def create_order(order: OrderRequest):
     try:
         pickup_address = get_address_from_coords(order.pickup_lat, order.pickup_lng)
-        dropoff_address = get_address_from_coords(order.dropoff_lat, order.dropoff_lng)
         
-        osrm_url = f"http://router.project-osrm.org/route/v1/driving/{order.pickup_lng},{order.pickup_lat};{order.dropoff_lng},{order.dropoff_lat}?overview=false"
+        # معالجة وتحديد إحداثيات الوصول بدقة (سواء من الدبوس أو استخراجها من النص المكتوب)
+        final_dropoff_lat = order.dropoff_lat
+        final_dropoff_lng = order.dropoff_lng
+        dropoff_address = ""
+
+        if (not final_dropoff_lat or not final_dropoff_lng) and order.dropoff_address_text:
+            lat, lng = get_coords_from_address(order.dropoff_address_text)
+            if lat and lng:
+                final_dropoff_lat = lat
+                final_dropoff_lng = lng
+                dropoff_address = order.dropoff_address_text
+            else:
+                final_dropoff_lat = 33.5898
+                final_dropoff_lng = -7.6114
+                dropoff_address = order.dropoff_address_text
+        elif final_dropoff_lat and final_dropoff_lng:
+            dropoff_address = get_address_from_coords(final_dropoff_lat, final_dropoff_lng)
+        else:
+            final_dropoff_lat = 33.5898
+            final_dropoff_lng = -7.6114
+            dropoff_address = "الدار البيضاء"
+
+        osrm_url = f"http://router.project-osrm.org/route/v1/driving/{order.pickup_lng},{order.pickup_lat};{final_dropoff_lng},{final_dropoff_lat}?overview=false"
         response = requests.get(osrm_url, timeout=3)
         data = response.json()
         
@@ -84,8 +118,8 @@ def create_order(order: OrderRequest):
             "dropoff_address": dropoff_address,
             "pickup_lat": order.pickup_lat,
             "pickup_lng": order.pickup_lng,
-            "dropoff_lat": order.dropoff_lat,
-            "dropoff_lng": order.dropoff_lng,
+            "dropoff_lat": final_dropoff_lat,
+            "dropoff_lng": final_dropoff_lng,
             "distance_km": distance_km,
             "price_mad": total_price,
             "status": "pending"
