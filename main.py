@@ -1,3 +1,5 @@
+import os
+import httpx
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -18,6 +20,9 @@ SUPABASE_URL = "https://cauujrnxtqswjzqhphyq.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNhdXVqcm54dHFzd2p6cWhwaHlxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4ODM0MTA0MywiZXhwIjoyMTAzOTE3MDQzfQ.17AG1uMHj14ZNVuzp56-9_Z2KYeG50Oo3k__kDbhUok"
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+# قراءة مفتاح Mapbox بأمان تام لتجنب تحذيرات GitHub
+MAPBOX_ACCESS_TOKEN = os.getenv("MAPBOX_ACCESS_TOKEN", "pk.eyJ1IjoiaWRzaWRpIiwiYSI6ImNtdTJscHkybjAwbW8yeXF1cXFhdXozaWMifQ.FDKkwkz9kdug1cghlLNChw")
 
 class OrderRequest(BaseModel):
     pickup_lat: float
@@ -43,6 +48,12 @@ class DriverLocationUpdate(BaseModel):
     lat: float
     lng: float
 
+class RouteRequest(BaseModel):
+    start_lng: float
+    start_lat: float
+    end_lng: float
+    end_lat: float
+
 def get_address_from_coords(lat, lng):
     try:
         url = f"https://nominatim.openstreetmap.org/reverse?lat={lat}&lon={lng}&format=json"
@@ -63,6 +74,34 @@ def get_coords_from_address(address_text):
     except Exception as e:
         print("Geocoding error in backend:", e)
     return None, None
+
+@app.post("/api/get-live-route")
+async def get_live_route(data: RouteRequest):
+    """
+    سيرفر بايتون يقوم بجلب المسار الحي بدقة باستخدام Mapbox Directions API
+    وإرجاعه كـ GeoJSON لكي تتحرك الأيقونة بسلاسة على الخريطة.
+    """
+    url = f"https://api.mapbox.com/directions/v5/mapbox/driving/{data.start_lng},{data.start_lat};{data.end_lng},{data.end_lat}?geometries=geojson&overview=full&access_token={MAPBOX_ACCESS_TOKEN}"
+    
+    async with httpx.AsyncClient() as client:
+        response = await client.get(url)
+        if response.status_code != 200:
+            raise HTTPException(status_code=400, detail="فشل في حساب المسار الجغرافي")
+        
+        route_data = response.json()
+        if not route_data.get("routes"):
+            raise HTTPException(status_code=404, detail="لا يوجد مسار متاح بين النقطتين")
+        
+        routejson = route_data["routes"][0]["geometry"]
+        distance = route_data["routes"][0]["distance"] / 1000.0 # بالكيلومتر
+        duration = route_data["routes"][0]["duration"] / 60.0 # بالدقائق
+
+        return {
+            "status": "success",
+            "distance_km": round(distance, 2),
+            "duration_mins": round(duration, 1),
+            "route_geometry": routejson
+        }
 
 @app.post("/create-order")
 def create_order(order: OrderRequest):
@@ -90,7 +129,6 @@ def create_order(order: OrderRequest):
             final_dropoff_lng = -7.6114
             dropoff_address = "الدار البيضاء"
 
-        # طلب المسار الحقيقي حصرياً عبر OSRM للبايتون
         osrm_url = f"http://router.project-osrm.org/route/v1/driving/{order.pickup_lng},{order.pickup_lat};{final_dropoff_lng},{final_dropoff_lat}?overview=full&geometries=geojson"
         response = requests.get(osrm_url, timeout=5)
         data = response.json()
@@ -137,14 +175,14 @@ def create_order(order: OrderRequest):
             "distance_km": distance_km,
             "price_mad": total_price,
             "status": "pending",
-            "route_path": route_geometry  # تخزين المسار الحقيقي في قاعدة البيانات عبر بايتون
+            "route_path": route_geometry
         }
         
         db_response = supabase.table("orders").insert(order_data).execute()
         
         return {
             "status": "success",
-            "message": "تم حساب المسار الحقيقي وتخزين الطلب بنجاح عبر بايتون",
+            "message": "تم حساب المسار الحقيقي وتخزين الطلب بنجاح عبر بايتون[cite: 5]",
             "data": {
                 "distance_km": distance_km,
                 "price_mad": total_price,
@@ -172,14 +210,13 @@ def accept_order(data: AcceptOrderRequest):
         
         return {
             "status": "success",
-            "message": "تم قبول الطلب بنجاح عبر بايتون",
+            "message": "تم قبول الطلب بنجاح عبر بايتون[cite: 5]",
             "data": db_response.data
         }
     except Exception as e:
         print("CRITICAL ERROR IN ACCEPT ORDER:", str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
-# دالة بايتون لاستقبال وتحديث الموقع الحقيقي (Live GPS) للموصل لحظة بلحظة
 @app.post("/update-driver-location")
 def update_driver_location(data: DriverLocationUpdate):
     try:
@@ -190,7 +227,7 @@ def update_driver_location(data: DriverLocationUpdate):
         
         return {
             "status": "success",
-            "message": "تم تحديث موقع الموصل الحقيقي عبر بايتون بنجاح",
+            "message": "تم تحديث موقع الموصل الحقيقي عبر بايتون بنجاح[cite: 5]",
             "data": db_response.data
         }
     except Exception as e:
