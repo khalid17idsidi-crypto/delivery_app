@@ -37,6 +37,13 @@ class AcceptOrderRequest(BaseModel):
     driver_id: str = None
     courier_id: str = None
 
+# نموذج البيانات القادمة لتحديث الموقع الحي للموصل
+class DriverLocationUpdate(BaseModel):
+    order_id: str
+    driver_id: str
+    lat: float
+    lng: float
+
 def get_address_from_coords(lat, lng):
     try:
         url = f"https://nominatim.openstreetmap.org/reverse?lat={lat}&lon={lng}&format=json"
@@ -173,4 +180,22 @@ def accept_order(data: AcceptOrderRequest):
         }
     except Exception as e:
         print("CRITICAL ERROR IN ACCEPT ORDER:", str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+# دالة استقبال وتحديث الموقع الحي للموصل في السيرفر
+@app.post("/update-driver-location")
+def update_driver_location(data: DriverLocationUpdate):
+    try:
+        db_response = supabase.table("orders").update({
+            "driver_lat": data.lat,
+            "driver_lng": data.lng
+        }).eq("id", data.order_id).execute()
+        
+        return {
+            "status": "success",
+            "message": "تم تحديث موقع الموصل بنجاح عبر السيرفر",
+            "data": db_response.data
+        }
+    except Exception as e:
+        print("CRITICAL ERROR IN UPDATE DRIVER LOCATION:", str(e))
         raise HTTPException(status_code=500, detail=str(e))
