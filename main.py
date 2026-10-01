@@ -64,7 +64,7 @@ def get_address_from_coords(lat, lng):
 
 def get_coords_from_address(address_text):
     """
-    بحث دقيق وشامل عبر OpenStreetMap يغطي الدار البيضاء الكبرى بكافة أحيائها وشوارعها بدون أي قيود ضيقة
+    البحث الشامل والذعي عبر OpenStreetMap (Nominatim) لتغطية الدار البيضاء الكبرى وشوارعها بدقة
     """
     try:
         clean_text = address_text.strip()
@@ -73,14 +73,14 @@ def get_coords_from_address(address_text):
 
         headers = {'User-Agent': 'DeliveryApp/1.0'}
         
-        # قائمة استعلامات ذكية تجرب عدة صيغ لضمان إيجاد العنوان في الدار البيضاء الكبرى بدقة
+        # صيغ بحث متعددة لضمان إيجاد العنوان بالدار البيضاء الكبرى
         queries = [
             f"{clean_text}, الدار البيضاء, المغرب",
             f"{clean_text}, Casablanca, Morocco",
             clean_text
         ]
         
-        # نطاق جغرافي واسع ومناسب للدار البيضاء الكبرى (يشمل المحمدية، عين الشق، البرنوصي، سيدي مومن، إلخ)
+        # نطاق جغرافي شامل يغطي الدار البيضاء الكبرى (من المحمدية إلى النواصر ومن الساحل إلى الداخل)
         casablanca_viewbox = "-7.85,33.30,-7.20,33.80"
 
         for q in queries:
@@ -90,7 +90,7 @@ def get_coords_from_address(address_text):
                 return float(res[0]['lat']), float(res[0]['lon'])
                 
     except Exception as e:
-        print("Geocoding error in backend:", e)
+        print("OpenStreetMap Geocoding error in backend:", e)
         
     return None, None
 
@@ -138,7 +138,7 @@ def create_order(order: OrderRequest):
                     final_dropoff_lng = lng
                     dropoff_address = order.dropoff_address_text
                 else:
-                    raise HTTPException(status_code=400, detail="عذراً، لم نتمكن من إيجاد هذا العنوان في الدار البيضاء الكبرى. يرجى كتابة اسم الشارع أو الحي بوضوح، أو تحديد النقطة مباشرة على الخريطة")
+                    raise HTTPException(status_code=400, detail="عذراً، لم نتمكن من إيجاد هذا العنوان في الدار البيضاء الكبرى عبر OpenStreetMap. يرجى كتابة اسم الشارع أو الحي بوضوح، أو تحديد النقطة مباشرة على الخريطة")
             else:
                 raise HTTPException(status_code=400, detail="الرجاء تحديد نقطة التسليم الحقيقية على الخريطة أو كتابة العنوان في خانة البحث أولاً")
         else:
@@ -189,7 +189,7 @@ def create_order(order: OrderRequest):
         
         return {
             "status": "success",
-            "message": "تم اعتماد وتخزين إحداثيات GPS الحقيقية داخل الدار البيضاء الكبرى بنجاح",
+            "message": "تم اعتماد وتخزين إحداثيات GPS الحقيقية عبر OpenStreetMap بنجاح",
             "data": {
                 "distance_km": distance_km,
                 "price_mad": total_price,
