@@ -230,7 +230,6 @@ def update_driver_location(data: DriverLocationUpdate):
         print("CRITICAL ERROR IN UPDATE DRIVER LOCATION:", str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
-# مسار عرض الواجهة الأمامية الشاملة المدمجة بالكامل عبر FastAPI
 @app.get("/", response_class=HTMLResponse)
 def serve_frontend():
     html_content = """<!DOCTYPE html>
@@ -246,7 +245,6 @@ def serve_frontend():
     
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
 
-    <!-- مكتبة Mapbox GL JS[cite: 5] -->
     <link href="https://api.mapbox.com/mapbox-gl-js/v3.1.2/mapbox-gl.css" rel="stylesheet" />
     <script src="https://api.mapbox.com/mapbox-gl-js/v3.1.2/mapbox-gl.js"></script>
     <script src="https://unpkg.com/@mapbox/mapbox-gl-language@1.0.1/index.js"></script>
@@ -1137,10 +1135,11 @@ def serve_frontend():
             accessToken: mapboxgl.accessToken, 
             mapboxgl: mapboxgl, 
             marker: false, 
-            placeholder: 'ابحث عن شارع أو حي في الدار البيضاء...', 
+            placeholder: 'ابحث عن أي حي أو شارع في الدار البيضاء...', 
             language: 'ar',
             countries: 'ma',
-            bbox: [-7.75, 33.45, -7.45, 33.70]
+            bbox: [-7.85, 33.35, -7.35, 33.75],
+            proximity: [-7.5898, 33.5731]
           });
           document.getElementById('geocoder-container').appendChild(geocoder.onAdd(map));
           geocoder.on('result', e => {
