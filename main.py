@@ -64,27 +64,33 @@ def get_address_from_coords(lat, lng):
 
 def get_coords_from_address(address_text):
     """
-    بحث متعدد الصيغ (Multi-Query Search) مع الحصر الجغرافي الصارم داخل الدار البيضاء فقط
+    البحث الذكي والمرن للعنوان داخل الدار البيضاء لمنع مشكلة No result found نهائياً
     """
     try:
         clean_text = address_text.strip()
-        
-        # إعداد قائمة احتمالات للبحث تدريجياً لمنع خطأ No result found
-        queries = []
-        if "الدار البيضاء" in clean_text or "Casablanca" in clean_text:
-            queries.append(clean_text)
-        else:
-            queries.append(f"{clean_text}, الدار البيضاء, المغرب")
-            queries.append(f"{clean_text}, Casablanca")
-            queries.append(clean_text)
+        if not clean_text:
+            return None, None
 
         headers = {'User-Agent': 'DeliveryApp/1.0'}
         
-        # إحداثيات الحصر الجغرافي (Bounding Box) لمدينة الدار البيضاء
-        casablanca_viewbox = "-7.75,33.45,-7.40,33.65"
+        # تجهيز عدة احتمالات للبحث بالترتيب من الأكثر تفصيلاً إلى الأبسط لضمان إيجاد نتيجة حقيقية
+        queries = [
+            f"{clean_text}, الدار البيضاء, المغرب",
+            f"{clean_text}, Casablanca, Morocco",
+            clean_text
+        ]
         
+        # إذا كان النص طويلاً، نضيف احتمالاً بأخذ أول كلمتين أو ثلاث (اسم الشارع والحي الأساسي)
+        words = clean_text.split()
+        if len(words) > 2:
+            short_text = " ".join(words[:3])
+            queries.append(f"{short_text}, الدار البيضاء")
+
+        # نطاق جغرافي أوسع قليلاً يغطي الدار البيضاء الكبرى بدقة
+        casablanca_viewbox = "-7.85,33.35,-7.30,33.75"
+
         for q in queries:
-            url = f"https://nominatim.openstreetmap.org/search?q={requests.utils.quote(q)}&format=json&limit=1&countrycodes=ma&viewbox={casablanca_viewbox}&bounded=1"
+            url = f"https://nominatim.openstreetmap.org/search?q={requests.utils.quote(q)}&format=json&limit=1&countrycodes=ma&viewbox={casablanca_viewbox}&bounded=0"
             res = requests.get(url, headers=headers, timeout=3).json()
             if res and len(res) > 0:
                 return float(res[0]['lat']), float(res[0]['lon'])
@@ -122,7 +128,7 @@ async def get_live_route(data: RouteRequest):
 def create_order(order: OrderRequest):
     try:
         if not order.pickup_lat or not order.pickup_lng:
-            raise HTTPException(status_code=400, detail="موقع الاستلام عبر GPS غير متوفر أو غير حقيقي، يرجى تفعيل الـ GPS وتحديد النقطة بدقة")
+            raise HTTPException(status_code=400, detail="موقع الاستلام عبر GPS غير متوفر، يرجى تفعيل الـ GPS وتحديد النقطة بدقة")
             
         pickup_address = get_address_from_coords(order.pickup_lat, order.pickup_lng)
         
@@ -138,10 +144,9 @@ def create_order(order: OrderRequest):
                     final_dropoff_lng = lng
                     dropoff_address = order.dropoff_address_text
                 else:
-                    # رسالة خطأ واضحة وموجهة للمستخدم لتفادي التوقف
-                    raise HTTPException(status_code=400, detail="عذراً، لم يتم العثور على هذا العنوان بدقة في الدار البيضاء. جرب كتابة اسم الشارع أو الحي بوضوح، أو ضع الدبوس مباشرة على الخريطة")
+                    raise HTTPException(status_code=400, detail="عذراً، لم نتمكن من إيجاد هذا العنوان بدقة. يرجى كتابة اسم الشارع والحي بوضوح في الدار البيضاء، أو تحديد النقطة مباشرة على الخريطة")
             else:
-                raise HTTPException(status_code=400, detail="الرجاء تحديد نقطة التسليم الحقيقية على الخريطة أو كتابة اسم الشارع والحي في الدار البيضاء أولاً")
+                raise HTTPException(status_code=400, detail="الرجاء تحديد نقطة التسليم الحقيقية على الخريطة أو كتابة العنوان في خانة البحث أولاً")
         else:
             dropoff_address = get_address_from_coords(final_dropoff_lat, final_dropoff_lng)
 
@@ -149,13 +154,12 @@ def create_order(order: OrderRequest):
         response = requests.get(osrm_url, timeout=5)
         data = response.json()
         
-        route_geometry = None
-        if response.status_code == 200 and data.get("routes"):
-            distance_meters = data['routes'][0]['distance']
-            distance_km = round(distance_meters / 1000.0, 2)
-            route_geometry = data['routes'][0]['geometry']
-        else:
-            raise HTTPException(status_code=400, detail="تعذر حساب مسار القيادة الحقيقي بين نقطة الاستلام والتسليم، يرجى التأكد من الإحداثيات")
+        if response.status_code != 200 or not data.get("routes"):
+            raise HTTPException(status_code=400, detail="تعذر حساب مسار القيادة الحقيقي بين نقطة الاستلام والتسليم، يرجى التأكد من الإحداثيات الصحيحة")
+            
+        distance_meters = data['routes'][0]['distance']
+        distance_km = round(distance_meters / 1000.0, 2)
+        route_geometry = data['routes'][0]['geometry']
         
         if distance_km < 3.0:
             total_price = 20.0
