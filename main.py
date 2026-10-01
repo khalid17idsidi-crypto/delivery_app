@@ -64,36 +64,33 @@ def get_address_from_coords(lat, lng):
 
 def get_coords_from_address(address_text):
     """
-    البحث الشامل والدقيق عبر Mapbox لتغطية الدار البيضاء الكبرى بكافة أحيائها وشوارعها دون استثناء
+    بحث دقيق وشامل عبر OpenStreetMap يغطي الدار البيضاء الكبرى بكافة أحيائها وشوارعها بدون أي قيود ضيقة
     """
     try:
         clean_text = address_text.strip()
         if not clean_text:
             return None, None
 
-        # إضافة الدار البيضاء لتوجيه البحث بدقة داخل المدينة
-        search_query = clean_text if "الدار البيضاء" in clean_text or "Casablanca" in clean_text else f"{clean_text}, الدار البيضاء, المغرب"
+        headers = {'User-Agent': 'DeliveryApp/1.0'}
         
-        # استخدام خدمة Geocoding الخاصة بـ Mapbox المربوطة بتوكن الخاص بك
-        url = f"https://api.mapbox.com/geocoding/v5/mapbox.places/{requests.utils.quote(search_query)}.json"
-        params = {
-            "access_token": MAPBOX_ACCESS_TOKEN,
-            "country": "ma",
-            "proximity": "-7.5898,33.5731", # مركز الدار البيضاء لإعطاء الأولوية القصوى لنتائج المدينة
-            "limit": 1
-        }
+        # قائمة استعلامات ذكية تجرب عدة صيغ لضمان إيجاد العنوان في الدار البيضاء الكبرى بدقة
+        queries = [
+            f"{clean_text}, الدار البيضاء, المغرب",
+            f"{clean_text}, Casablanca, Morocco",
+            clean_text
+        ]
         
-        response = requests.get(url, params=params, timeout=4)
-        if response.status_code == 200:
-            data = response.json()
-            features = data.get("features", [])
-            if features:
-                # Mapbox يعيد الإحداثيات على شكل [longitude, latitude]
-                coords = features[0]["geometry"]["coordinates"]
-                return float(coords[1]), float(coords[0])
+        # نطاق جغرافي واسع ومناسب للدار البيضاء الكبرى (يشمل المحمدية، عين الشق، البرنوصي، سيدي مومن، إلخ)
+        casablanca_viewbox = "-7.85,33.30,-7.20,33.80"
+
+        for q in queries:
+            url = f"https://nominatim.openstreetmap.org/search?q={requests.utils.quote(q)}&format=json&limit=1&countrycodes=ma&viewbox={casablanca_viewbox}&bounded=0"
+            res = requests.get(url, headers=headers, timeout=4).json()
+            if res and len(res) > 0:
+                return float(res[0]['lat']), float(res[0]['lon'])
                 
     except Exception as e:
-        print("Mapbox Geocoding error in backend:", e)
+        print("Geocoding error in backend:", e)
         
     return None, None
 
@@ -141,7 +138,7 @@ def create_order(order: OrderRequest):
                     final_dropoff_lng = lng
                     dropoff_address = order.dropoff_address_text
                 else:
-                    raise HTTPException(status_code=400, detail="عذراً، لم نتمكن من إيجاد هذا العنوان في الدار البيضاء الكبرى. يرجى كتابة اسم الشارع والحي بوضوح، أو تحديد النقطة على الخريطة")
+                    raise HTTPException(status_code=400, detail="عذراً، لم نتمكن من إيجاد هذا العنوان في الدار البيضاء الكبرى. يرجى كتابة اسم الشارع أو الحي بوضوح، أو تحديد النقطة مباشرة على الخريطة")
             else:
                 raise HTTPException(status_code=400, detail="الرجاء تحديد نقطة التسليم الحقيقية على الخريطة أو كتابة العنوان في خانة البحث أولاً")
         else:
