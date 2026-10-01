@@ -74,7 +74,6 @@ def get_coords_from_address(address_text):
         print("Geocoding error in backend:", e)
     return None, None
 
-# دالة المسار الحي الدقيق عبر Mapbox للتتبع وتحرك الأيقونة
 @app.post("/api/get-live-route")
 async def get_live_route(data: RouteRequest):
     url = f"https://api.mapbox.com/directions/v5/mapbox/driving/{data.start_lng},{data.start_lat};{data.end_lng},{data.end_lat}?geometries=geojson&overview=full&access_token={MAPBOX_ACCESS_TOKEN}"
@@ -102,8 +101,9 @@ async def get_live_route(data: RouteRequest):
 @app.post("/create-order")
 def create_order(order: OrderRequest):
     try:
+        # التحقق التام من توفر إحداثيات الاستلام الحقيقية عبر GPS
         if not order.pickup_lat or not order.pickup_lng:
-            raise HTTPException(status_code=400, detail="موقع الاستلام عبر GPS غير متوفر")
+            raise HTTPException(status_code=400, detail="موقع الاستلام عبر GPS غير متوفر أو غير حقيقي، يرجى تفعيل الـ GPS وتحديد النقطة بدقة")
             
         pickup_address = get_address_from_coords(order.pickup_lat, order.pickup_lng)
         
@@ -111,6 +111,7 @@ def create_order(order: OrderRequest):
         final_dropoff_lng = order.dropoff_lng
         dropoff_address = ""
 
+        # التحقق من أن نقطة التسليم حقيقية وليست افتراضية
         if not final_dropoff_lat or not final_dropoff_lng:
             if order.dropoff_address_text:
                 lat, lng = get_coords_from_address(order.dropoff_address_text)
@@ -119,12 +120,13 @@ def create_order(order: OrderRequest):
                     final_dropoff_lng = lng
                     dropoff_address = order.dropoff_address_text
                 else:
-                    raise HTTPException(status_code=400, detail="يرجى تحديد وجهة التسليم بدقة على الخريطة أو كتابة عنوان صحيح")
+                    raise HTTPException(status_code=400, detail="عذراً، العنوان المدون للتسليم غير دقيق. يرجى تحديد نقطة التسليم الحقيقية مباشرة على الخريطة")
             else:
-                raise HTTPException(status_code=400, detail="الرجاء تحديد نقطة التسليم على الخريطة أولاً")
+                raise HTTPException(status_code=400, detail="الرجاء تحديد نقطة التسليم الحقيقية على الخريطة أولاً لضمان عدم استخدام إحداثيات افتراضية")
         else:
             dropoff_address = get_address_from_coords(final_dropoff_lat, final_dropoff_lng)
 
+        # حساب المسار الحقيقي بدقة تامة اعتماداً على الإحداثيات الفعلية
         osrm_url = f"http://router.project-osrm.org/route/v1/driving/{order.pickup_lng},{order.pickup_lat};{final_dropoff_lng},{final_dropoff_lat}?overview=full&geometries=geojson"
         response = requests.get(osrm_url, timeout=5)
         data = response.json()
@@ -135,14 +137,8 @@ def create_order(order: OrderRequest):
             distance_km = round(distance_meters / 1000.0, 2)
             route_geometry = data['routes'][0]['geometry']
         else:
-            distance_km = 2.0
-            route_geometry = {
-                "type": "LineString",
-                "coordinates": [
-                    [order.pickup_lng, order.pickup_lat],
-                    [final_dropoff_lng, final_dropoff_lat]
-                ]
-            }
+            # منع أي قيم افتراضية للمسافة أو المسار واشتراط صحة الاتصال والمسار الجغرافي
+            raise HTTPException(status_code=400, detail="تعذر حساب مسار القيادة الحقيقي بين نقطة الاستلام والتسليم، يرجى التأكد من الإحداثيات")
         
         if distance_km < 3.0:
             total_price = 20.0
@@ -178,7 +174,7 @@ def create_order(order: OrderRequest):
         
         return {
             "status": "success",
-            "message": "تم حساب المسار الحقيقي وتخزين الطلب بنجاح عبر بايتون",
+            "message": "تم اعتماد وتخزين إحداثيات GPS الحقيقية للاستلام والتسليم بنجاح عبر بايتون",
             "data": {
                 "distance_km": distance_km,
                 "price_mad": total_price,
