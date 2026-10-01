@@ -74,6 +74,7 @@ def get_coords_from_address(address_text):
         print("Geocoding error in backend:", e)
     return None, None
 
+# دالة المسار الحي الدقيق عبر Mapbox للتتبع وتحرك الأيقونة
 @app.post("/api/get-live-route")
 async def get_live_route(data: RouteRequest):
     url = f"https://api.mapbox.com/directions/v5/mapbox/driving/{data.start_lng},{data.start_lat};{data.end_lng},{data.end_lat}?geometries=geojson&overview=full&access_token={MAPBOX_ACCESS_TOKEN}"
