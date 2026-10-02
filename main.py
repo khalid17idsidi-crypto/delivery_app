@@ -243,13 +243,8 @@ def serve_frontend():
     
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
 
-    <!-- مكتبة Leaflet.js و OpenStreetMap CSS & JS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-
-    <!-- أداة البحث المدمجة لـ Leaflet (Nominatim Geocoder) -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
-    <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+    <!-- Google Maps API JavaScript (مفتاح خرائط جوجل الرسمي) -->
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBLK_DiAtM0aW8uBnDhJ9ZOyeqmtF94SCQ&libraries=places"></script>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.8/dist/umd/supabase.min.js"></script>
 
@@ -368,11 +363,7 @@ def serve_frontend():
         border: 2px solid var(--warning); color: var(--warning); width: 45px; height: 45px; border-radius: 50%;
         font-size: 20px; display: flex; align-items: center; justify-content: center; cursor: pointer;
       }
-      .leaflet-control-geocoder { background: var(--card-bg) !important; color: var(--text-main) !important; border-radius: 10px !important; border: 1px solid var(--primary) !important; }
-      .leaflet-control-geocoder-form input { background: var(--card-bg) !important; color: var(--text-main) !important; font-family: "Tajawal", sans-serif !important; padding: 6px !important; }
-      .leaflet-control-geocoder-results { background: var(--card-bg) !important; color: var(--text-main) !important; border: 1px solid var(--border) !important; }
-      .leaflet-control-geocoder-result { color: var(--text-main) !important; border-bottom: 1px solid var(--border) !important; }
-      .leaflet-control-geocoder-result:hover { background: rgba(16, 185, 129, 0.2) !important; }
+      .pac-card { background-color: var(--card-bg); color: var(--text-main); padding: 6px; border-radius: 8px; border: 1px solid var(--primary); margin-bottom: 8px; width: 100%; font-size: 12px; }
 
       .field-group { margin-bottom: 12px; text-align: inherit; position: relative; }
       .field-group label { display: block; font-size: 11px; color: var(--text-muted); margin-bottom: 6px; }
@@ -547,10 +538,11 @@ def serve_frontend():
           <div id="adminDriversListContainer"><p style="font-size: 11px; color: var(--text-muted);">جاري تحميل طلبات الموصلين المعلقة...</p></div>
         </div>
 
-        <!-- 5. إنشاء طلب جديد (للزبون) عبر خريطة كازا فائقة الوضوح والأسماء -->
+        <!-- 5. إنشاء طلب جديد (للزبون) باستخدام خرائط جوجل الرسمية -->
         <div id="clientView" class="view-panel">
-          <h3 style="font-size: 14px; margin-bottom: 6px; color: var(--primary)">🗺️ خريطة الدار البيضاء الكبرى (أسماء الأحياء والشوارع واضحة)</h3>
-          <div class="pin-instruction-box">🔍 <b>ابحث عن الحي أو الشارع</b> في شريط البحث، أو <b>حرك الدبوس الأحمر</b> لتحديد نقطة التسليم في الدار البيضاء بدقة مذهلة.</div>
+          <h3 style="font-size: 14px; margin-bottom: 6px; color: var(--primary)">🗺️ خريطة جوجل الرسمية - الدار البيضاء الكبرى</h3>
+          <div class="pin-instruction-box">🔍 <b>ابحث عن الحي أو الشارع</b> في شريط البحث أدناه، أو <b>حرك الدبوس الأحمر</b> لتحديد نقطة التسليم بدقة تامة.</div>
+          <input id="pac-input" class="pac-card" type="text" placeholder="ابحث عن أي حي أو شارع في الدار البيضاء..." />
           <div class="map-wrapper">
             <div id="map" style="width: 100%; height: 380px; border-radius: 14px; border: 2px solid var(--primary);"></div>
             <button type="button" class="gps-btn" onclick="safeExecute(goToCurrentLocation)">📍 موقعي الحالي</button>
@@ -562,9 +554,9 @@ def serve_frontend():
           <button class="btn-submit" onclick="safeExecute(createNewOrder)">🚀 إرسال الطلب وحساب السعر المضبوط</button>
         </div>
 
-        <!-- 6. تتبع طلبات الزبون (بشكل InDrive احترافي تماماً مع المسار الأزرق وحركة الموصل) -->
+        <!-- 6. تتبع طلبات الزبون (بشكل InDrive احترافي مع خرائط جوجل والمسار الأزرق ودراجة الموصل) -->
         <div id="clientOrdersView" class="view-panel">
-          <h3 style="font-size: 14px; margin-bottom: 10px; color: var(--primary)">🛵 التتبع الحي المباشر لموقع الموصل (مسار الرحلة الأزرق)</h3>
+          <h3 style="font-size: 14px; margin-bottom: 10px; color: var(--primary)">🛵 التتبع الحي المباشر لموقع الموصل</h3>
           <div id="clientTrackingMap" style="width: 100%; height: 400px; border-radius: 14px; border: 1px solid var(--border); margin-top: 10px;"></div>
           <div id="clientOrdersListContainer" style="margin-top: 10px;"><p style="font-size: 11px; color: var(--text-muted)">جاري جلب تفاصيل التتبع الحي...</p></div>
         </div>
@@ -691,8 +683,8 @@ def serve_frontend():
 
       let userCurrentLat = 33.5731, userCurrentLng = -7.5898;
       let deliveryLat = null, deliveryLng = null;
-      let map = null, deliveryMarker = null, trackingMap = null, trackingMarker = null;
-      let driverActiveMap = null, driverMarker = null, currentActiveOrder = null;
+      let mapInstance = null, deliveryMarker = null, trackingMapInstance = null, trackingMarker = null;
+      let driverActiveMapInstance = null, driverMarker = null, currentActiveOrder = null;
       let currentAuthMode = 'login', selectedRechargeMethod = 'cih_transfer', wakeLockInstance = null;
       let radarOrdersCache = [], radarInterval = null, clientTrackingInterval = null, driverLocationUpdateInterval = null;
 
@@ -713,9 +705,9 @@ def serve_frontend():
         return R * c;
       }
 
-      // رسم المسار باللون الأزرق الاحترافي تماماً مثل InDrive
-      async function drawLiveRouteFromOSRM(mapInstance, startLng, startLat, endLng, endLat, lineColor = '#3b82f6') {
-        if (!mapInstance || !startLng || !startLat || !endLng || !endLat) return;
+      // رسم مسار الرحلة الأزرق الاحترافي على خريطة جوجل
+      async function drawGooglePolylineRoute(googleMap, startLat, startLng, endLat, endLng, polylineColor = '#3b82f6') {
+        if (!googleMap || !startLat || !startLng || !endLat || !endLng) return;
         try {
           const response = await fetch('/api/get-live-route', {
             method: 'POST',
@@ -724,13 +716,20 @@ def serve_frontend():
           });
           const result = await response.json();
           if (result.status === 'success') {
-            if (mapInstance._activeRouteLayer) {
-              mapInstance.removeLayer(mapInstance._activeRouteLayer);
+            if (googleMap._currentPolyline) {
+              googleMap._currentPolyline.setMap(null);
             }
-            const coords = result.route_geometry.coordinates.map(c => [c[1], c[0]]);
-            mapInstance._activeRouteLayer = L.polyline(coords, { color: lineColor, weight: 6, opacity: 0.9 }).addTo(mapInstance);
+            const pathCoords = result.route_geometry.coordinates.map(c => ({ lat: c[1], lng: c[0] }));
+            googleMap._currentPolyline = new google.maps.Polyline({
+              path: pathCoords,
+              geodesic: true,
+              strokeColor: polylineColor,
+              strokeOpacity: 0.85,
+              strokeWeight: 6
+            });
+            googleMap._currentPolyline.setMap(googleMap);
           }
-        } catch (err) { console.error("Route Error:", err); }
+        } catch (e) { console.error("Google Route Error:", e); }
       }
 
       function selectWalletRechargeMethod(method, el) {
@@ -758,7 +757,7 @@ def serve_frontend():
         navigator.geolocation.getCurrentPosition(pos => {
           userCurrentLat = pos.coords.latitude; userCurrentLng = pos.coords.longitude;
           if (overlay) overlay.style.display = "none";
-          if (map) map.setView([userCurrentLat, userCurrentLng], 15);
+          if (mapInstance) mapInstance.setCenter({ lat: userCurrentLat, lng: userCurrentLng });
         }, () => { if (overlay) overlay.style.display = "none"; }, { enableHighAccuracy: true });
       }
 
@@ -786,13 +785,13 @@ def serve_frontend():
         }
 
         if (viewId === 'clientOrdersView' && currentRole === 'customer') {
-          setTimeout(() => initClientTrackingMap(), 300);
-          if (!clientTrackingInterval) clientTrackingInterval = setInterval(() => { if (currentRole === 'customer' && document.getElementById('clientOrdersView').classList.contains('active')) updateClientLiveTrackingMap(); }, 4000);
+          setTimeout(() => initGoogleClientTrackingMap(), 300);
+          if (!clientTrackingInterval) clientTrackingInterval = setInterval(() => { if (currentRole === 'customer' && document.getElementById('clientOrdersView').classList.contains('active')) updateGoogleClientLiveTracking(); }, 4000);
         } else {
           if (clientTrackingInterval) { clearInterval(clientTrackingInterval); clientTrackingInterval = null; }
         }
 
-        if (viewId === 'clientView') setTimeout(() => initLeafletMapForClient(), 300);
+        if (viewId === 'clientView') setTimeout(() => initGoogleMapForClient(), 300);
         if (viewId === 'adminVerificationView') loadAdminVerificationQueue();
         if (viewId === 'performanceView') loadDriverPerformanceRealData();
         if (viewId === 'earningsView') loadDriverEarningsRealData('day');
@@ -936,23 +935,21 @@ def serve_frontend():
         document.getElementById("driverActiveOrderContainer").style.display = "block";
         document.getElementById("ordersListContainer").style.display = "none";
         setTimeout(() => {
-          initLeafletDriverActiveMap(targetNavLat, targetNavLng);
-          drawLiveRouteFromOSRM(driverActiveMap, userCurrentLng, userCurrentLat, targetNavLng, targetNavLat, '#3b82f6');
+          initGoogleDriverActiveMap(targetNavLat, targetNavLng);
+          drawGooglePolylineRoute(driverActiveMapInstance, userCurrentLat, userCurrentLng, targetNavLat, targetNavLng, '#3b82f6');
         }, 200);
       }
 
-      function initLeafletDriverActiveMap(lat, lng) {
-        if (!driverActiveMap) {
-          driverActiveMap = L.map('driverActiveMap').setView([lat || userCurrentLat, lng || userCurrentLng], 15);
-          L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-            maxZoom: 19,
-            subdomains: 'abcd',
-            attribution: '&copy; CARTO'
-          }).addTo(driverActiveMap);
-          driverMarker = L.marker([userCurrentLat, userCurrentLng]).addTo(driverActiveMap);
+      function initGoogleDriverActiveMap(lat, lng) {
+        if (!driverActiveMapInstance) {
+          driverActiveMapInstance = new google.maps.Map(document.getElementById('driverActiveMap'), {
+            center: { lat: lat || userCurrentLat, lng: lng || userCurrentLng },
+            zoom: 15,
+            disableDefaultUI: true
+          });
+          driverMarker = new google.maps.Marker({ position: { lat: userCurrentLat, lng: userCurrentLng }, map: driverActiveMapInstance, title: "موقعك" });
         } else {
-          driverActiveMap.invalidateSize();
-          driverActiveMap.setView([lat, lng], 15);
+          driverActiveMapInstance.setCenter({ lat, lng });
         }
       }
 
@@ -965,21 +962,10 @@ def serve_frontend():
           showAppToast("تنبيه", "لا يوجد طلب نشط حالياً.");
           return;
         }
-        
         let destLat = destinationType === 'pickup' ? currentActiveOrder.pickup_lat : currentActiveOrder.dropoff_lat;
         let destLng = destinationType === 'pickup' ? currentActiveOrder.pickup_lng : currentActiveOrder.dropoff_lng;
-        
-        if (!destLat || !destLng) {
-          showAppToast("تنبيه", "إحداثيات الوجهة غير متوفرة لهذا الطلب.");
-          return;
-        }
-
-        let url = '';
-        if (type === 'waze') {
-          url = `https://waze.com/ul?ll=${destLat},${destLng}&navigate=yes`;
-        } else {
-          url = `https://www.google.com/maps/dir/?api=1&destination=${destLat},${destLng}&travelmode=driving`;
-        }
+        if (!destLat || !destLng) { showAppToast("تنبيه", "إحداثيات الوجهة غير متوفرة."); return; }
+        let url = type === 'waze' ? `https://waze.com/ul?ll=${destLat},${destLng}&navigate=yes` : `https://www.google.com/maps/dir/?api=1&destination=${destLat},${destLng}&travelmode=driving`;
         window.open(url, '_blank');
       }
 
@@ -988,38 +974,35 @@ def serve_frontend():
           if (currentActiveOrder) {
             const targetLat = (newStatus === 'picked_up') ? currentActiveOrder.pickup_lat : currentActiveOrder.dropoff_lat;
             const targetLng = (newStatus === 'picked_up') ? currentActiveOrder.pickup_lng : currentActiveOrder.dropoff_lng;
-            
             if (targetLat && targetLng) {
               const distanceMeters = calculateDistanceMeters(userCurrentLat, userCurrentLng, targetLat, targetLng);
               if (distanceMeters > 250) {
-                showAppToast("تنبيه GPS 🚫", `لا يمكنك تأكيد العملية! أنت تبعد عن النقطة بـ ${Math.round(distanceMeters)} متر. يجب أن تقترب من الموقع الجغرافي المطلوب أولاً.`);
+                showAppToast("تنبيه GPS 🚫", `لا يمكنك تأكيد العملية! أنت تبعد عن النقطة بـ ${Math.round(distanceMeters)} متر.`);
                 return;
               }
             }
           }
-
           await supabaseClient.from('orders').update({ status: newStatus, driver_id: (newStatus==='completed'? currentUserId : undefined) }).eq('id', orderId);
-          showAppToast("تم بنجاح ✅", "تم تحديث حالة الطلب والتحقق من موقعك.");
+          showAppToast("تم بنجاح ✅", "تم تحديث حالة الطلب.");
           checkDriverActiveOrder();
         } catch (e) { showAppToast("خطأ", e.message); }
       }
 
-      // تهيئة خريطة التتبع للزبون مع أيقونة دراجة الموصل المتحركة والمسار الأزرق للرحلة
-      async function initClientTrackingMap() {
-        if (!trackingMap) {
-          trackingMap = L.map('clientTrackingMap').setView([userCurrentLat, userCurrentLng], 15);
-          L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-            maxZoom: 19,
-            subdomains: 'abcd',
-            attribution: '&copy; CARTO'
-          }).addTo(trackingMap);
-        } else { trackingMap.invalidateSize(); }
-        await updateClientLiveTrackingMap();
+      // تهيئة خريطة التتبع الحي للزبون باستخدام خريطة جوجل والمسار الأزرق ودراجة الموصل
+      async function initGoogleClientTrackingMap() {
+        if (!trackingMapInstance) {
+          trackingMapInstance = new google.maps.Map(document.getElementById('clientTrackingMap'), {
+            center: { lat: userCurrentLat, lng: userCurrentLng },
+            zoom: 15,
+            disableDefaultUI: true
+          });
+        }
+        await updateGoogleClientLiveTracking();
       }
 
-      async function updateClientLiveTrackingMap() {
+      async function updateGoogleClientLiveTracking() {
         const container = document.getElementById("clientOrdersListContainer");
-        if (currentRole !== 'customer' || !trackingMap) return;
+        if (currentRole !== 'customer' || !trackingMapInstance) return;
         try {
           const { data: orders } = await supabaseClient.from('orders').select('*').eq('customer_id', currentUserId);
           if (!orders || orders.length === 0) { 
@@ -1027,31 +1010,26 @@ def serve_frontend():
             return; 
           }
           const activeOrder = orders[orders.length - 1];
-          
           let pLat = activeOrder.pickup_lat || userCurrentLat, pLng = activeOrder.pickup_lng || userCurrentLng;
           let dLat = activeOrder.dropoff_lat || userCurrentLat, dLng = activeOrder.dropoff_lng || userCurrentLng;
-          let driverLat = activeOrder.driver_lat || pLat;
-          let driverLng = activeOrder.driver_lng || pLng;
+          let driverLat = activeOrder.driver_lat || pLat, driverLng = activeOrder.driver_lng || pLng;
 
-          // رسم المسار الأزرق الكامل بين الاستلام والتسليم
-          drawLiveRouteFromOSRM(trackingMap, pLng, pLat, dLng, dLat, '#3b82f6');
+          drawGooglePolylineRoute(trackingMapInstance, pLat, pLng, dLat, dLng, '#3b82f6');
 
-          // إضافة أو تحديث دبابيس الاستلام والتسليم وأيقونة الموصل المتحركة (🛵)
-          if (!window.pickupMarker) {
-            window.pickupMarker = L.marker([pLat, pLng]).addTo(trackingMap).bindPopup("📍 نقطة الاستلام");
-            window.dropoffMarker = L.marker([dLat, dLng]).addTo(trackingMap).bindPopup("🎯 نقطة التسليم");
+          if (!window.gPickupMarker) {
+            window.gPickupMarker = new google.maps.Marker({ position: { lat: pLat, lng: pLng }, map: trackingMapInstance, title: "نقطة الاستلام" });
+            window.gDropoffMarker = new google.maps.Marker({ position: { lat: dLat, lng: dLng }, map: trackingMapInstance, title: "نقطة التسليم" });
           }
 
-          const driverIcon = L.divicon ? L.divIcon({ html: '🛵', className: 'driver-emoji-icon', iconSize: [30, 30] }) : null;
           if (!trackingMarker) {
-            trackingMarker = L.marker([driverLat, driverLng], driverIcon ? { icon: driverIcon } : {}).addTo(trackingMap).bindPopup("🛵 موقع الموصل الحالي");
+            trackingMarker = new google.maps.Marker({ position: { lat: driverLat, lng: driverLng }, map: trackingMapInstance, title: "موقع الموصل 🛵" });
           } else {
-            trackingMarker.setLatLng([driverLat, driverLng]);
+            trackingMarker.setPosition({ lat: driverLat, lng: driverLng });
           }
 
           container.innerHTML = `
             <div class="indrive-order-card">
-              <div class="card-top-info"><span class="price-badge-indrive">${activeOrder.price_mad} MAD</span><span class="distance-tag">حالة الطلب: ${activeOrder.status}</span></div>
+              <div class="card-top-info"><span class="price-badge-indrive">${activeOrder.price_mad} MAD</span><span class="distance-tag">الحالة: ${activeOrder.status}</span></div>
               <div class="location-row"><span class="dot-point pickup"></span><span><b>الاستلام:</b> ${formatShortAddress(activeOrder.pickup_address)}</span></div>
               <div class="location-row"><span class="dot-point delivery"></span><span><b>التسليم:</b> ${formatShortAddress(activeOrder.dropoff_address)}</span></div>
             </div>
@@ -1164,58 +1142,71 @@ def serve_frontend():
 
       async function submitWalletTopupRequest() { showAppToast("نجاح", "تم إرسال طلب الشحن."); }
 
-      function initLeafletMapForClient() {
-        if (map) {
-          map.invalidateSize();
-          map.setView([userCurrentLat, userCurrentLng], 15);
+      // تهيئة خريطة جوجل لإنشاء الطلب في الدار البيضاء مع شريط البحث الرسمي (Places Autocomplete)
+      function initGoogleMapForClient() {
+        if (mapInstance) {
+          google.maps.event.trigger(mapInstance, 'resize');
+          mapInstance.setCenter({ lat: userCurrentLat, lng: userCurrentLng });
           return;
         }
 
-        map = L.map('map').setView([userCurrentLat, userCurrentLng], 15);
-        
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-          maxZoom: 19,
-          subdomains: 'abcd',
-          attribution: '&copy; CARTO'
-        }).addTo(map);
-
-        L.marker([userCurrentLat, userCurrentLng]).addTo(map).bindPopup("موقعك الحالي");
-
-        deliveryLat = userCurrentLat + 0.003; deliveryLng = userCurrentLng + 0.003;
-        deliveryMarker = L.marker([deliveryLat, deliveryLng], { draggable: true }).addTo(map);
-
-        const updateCoords = () => {
-          const ll = deliveryMarker.getLatLng();
-          deliveryLat = ll.lat; deliveryLng = ll.lng;
-          document.getElementById("deliveryCoordsDisplay").value = `📍 الإحداثيات: (${deliveryLat.toFixed(4)}, ${deliveryLng.toFixed(4)})`;
-        };
-        updateCoords();
-
-        deliveryMarker.on('dragend', updateCoords);
-        map.on('click', e => {
-          deliveryLat = e.latlng.lat; deliveryLng = e.latlng.lng;
-          deliveryMarker.setLatLng([deliveryLat, deliveryLng]);
-          updateCoords();
+        const casaCenter = { lat: userCurrentLat, lng: userCurrentLng };
+        mapInstance = new google.maps.Map(document.getElementById('map'), {
+          center: casaCenter,
+          zoom: 15,
+          mapTypeControl: false,
+          streetViewControl: false,
+          fullscreenControl: false
         });
 
-        const geocoder = L.Control.geocoder({
-          defaultMarkGeocode: false,
-          placeholder: 'ابحث عن أي شارع أو حي في الدار البيضاء...',
-          geocoder: L.Control.Geocoder.nominatim({
-            geocodingQueryParams: { countrycodes: 'ma', viewbox: '-7.85,33.35,-7.35,33.75', bounded: 1 }
-          })
-        }).addTo(map);
+        deliveryLat = userCurrentLat + 0.003; deliveryLng = userCurrentLng + 0.003;
+        deliveryMarker = new google.maps.Marker({
+          position: { lat: deliveryLat, lng: deliveryLng },
+          map: mapInstance,
+          draggable: true,
+          title: "اسحب لتحديد نقطة التسليم"
+        });
 
-        geocoder.on('markgeocode', function(e) {
-          const center = e.geocode.center;
-          deliveryLat = center.lat; deliveryLng = center.lng;
-          deliveryMarker.setLatLng([deliveryLat, deliveryLng]);
-          map.setView([deliveryLat, deliveryLng], 16);
-          updateCoords();
+        const updateCoords = (lat, lng) => {
+          deliveryLat = lat; deliveryLng = lng;
+          document.getElementById("deliveryCoordsDisplay").value = `📍 الإحداثيات: (${deliveryLat.toFixed(4)}, ${deliveryLng.toFixed(4)})`;
+        };
+        updateCoords(deliveryLat, deliveryLng);
+
+        google.maps.event.addListener(deliveryMarker, 'dragend', function() {
+          const pos = deliveryMarker.getPosition();
+          updateCoords(pos.lat(), pos.lng());
+        });
+
+        google.maps.event.addListener(mapInstance, 'click', function(e) {
+          deliveryMarker.setPosition(e.latLng);
+          updateCoords(e.latLng.lat(), e.latLng.lng());
+        });
+
+        // تفعيل بحث الأماكن والشوارع بخرائط جوجل (Places Autocomplete) المخصص للدار البيضاء
+        const input = document.getElementById('pac-input');
+        const autocomplete = new google.maps.places.Autocomplete(input, {
+          componentRestrictions: { country: "ma" },
+          bounds: new google.maps.LatLngBounds(
+            new google.maps.LatLng(33.35, -7.85),
+            new google.maps.LatLng(33.75, -7.35)
+          ),
+          strictBounds: false
+        });
+
+        autocomplete.bindTo('bounds', mapInstance);
+
+        autocomplete.addListener('place_changed', function() {
+          const place = autocomplete.getPlace();
+          if (!place.geometry || !place.geometry.location) return;
+          mapInstance.setCenter(place.geometry.location);
+          mapInstance.setZoom(16);
+          deliveryMarker.setPosition(place.geometry.location);
+          updateCoords(place.geometry.location.lat(), place.geometry.location.lng());
         });
       }
 
-      function goToCurrentLocation() { if (map && userCurrentLat) map.setView([userCurrentLat, userCurrentLng], 16); }
+      function goToCurrentLocation() { if (mapInstance && userCurrentLat) mapInstance.setCenter({ lat: userCurrentLat, lng: userCurrentLng }); }
       function logoutUser() { releaseScreenWakeLock(); localStorage.clear(); location.reload(); }
 
       document.addEventListener("DOMContentLoaded", async () => {
