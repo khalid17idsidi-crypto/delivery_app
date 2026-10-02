@@ -562,9 +562,9 @@ def serve_frontend():
           <button class="btn-submit" onclick="safeExecute(createNewOrder)">🚀 إرسال الطلب وحساب السعر المضبوط</button>
         </div>
 
-        <!-- 6. تتبع طلبات الزبون -->
+        <!-- 6. تتبع طلبات الزبون (بشكل InDrive احترافي تماماً مع المسار الأزرق وحركة الموصل) -->
         <div id="clientOrdersView" class="view-panel">
-          <h3 style="font-size: 14px; margin-bottom: 10px; color: var(--primary)">🛵 التتبع الحي المباشر لموقع الموصل</h3>
+          <h3 style="font-size: 14px; margin-bottom: 10px; color: var(--primary)">🛵 التتبع الحي المباشر لموقع الموصل (مسار الرحلة الأزرق)</h3>
           <div id="clientTrackingMap" style="width: 100%; height: 400px; border-radius: 14px; border: 1px solid var(--border); margin-top: 10px;"></div>
           <div id="clientOrdersListContainer" style="margin-top: 10px;"><p style="font-size: 11px; color: var(--text-muted)">جاري جلب تفاصيل التتبع الحي...</p></div>
         </div>
@@ -713,7 +713,8 @@ def serve_frontend():
         return R * c;
       }
 
-      async function drawLiveRouteFromOSRM(mapInstance, startLng, startLat, endLng, endLat) {
+      // رسم المسار باللون الأزرق الاحترافي تماماً مثل InDrive
+      async function drawLiveRouteFromOSRM(mapInstance, startLng, startLat, endLng, endLat, lineColor = '#3b82f6') {
         if (!mapInstance || !startLng || !startLat || !endLng || !endLat) return;
         try {
           const response = await fetch('/api/get-live-route', {
@@ -723,11 +724,11 @@ def serve_frontend():
           });
           const result = await response.json();
           if (result.status === 'success') {
-            if (window.activeRouteLayer) {
-              mapInstance.removeLayer(window.activeRouteLayer);
+            if (mapInstance._activeRouteLayer) {
+              mapInstance.removeLayer(mapInstance._activeRouteLayer);
             }
             const coords = result.route_geometry.coordinates.map(c => [c[1], c[0]]);
-            window.activeRouteLayer = L.polyline(coords, { color: '#10b981', weight: 6, opacity: 0.9 }).addTo(mapInstance);
+            mapInstance._activeRouteLayer = L.polyline(coords, { color: lineColor, weight: 6, opacity: 0.9 }).addTo(mapInstance);
           }
         } catch (err) { console.error("Route Error:", err); }
       }
@@ -936,7 +937,7 @@ def serve_frontend():
         document.getElementById("ordersListContainer").style.display = "none";
         setTimeout(() => {
           initLeafletDriverActiveMap(targetNavLat, targetNavLng);
-          drawLiveRouteFromOSRM(driverActiveMap, userCurrentLng, userCurrentLat, targetNavLng, targetNavLat);
+          drawLiveRouteFromOSRM(driverActiveMap, userCurrentLng, userCurrentLat, targetNavLng, targetNavLat, '#3b82f6');
         }, 200);
       }
 
@@ -946,7 +947,7 @@ def serve_frontend():
           L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
             maxZoom: 19,
             subdomains: 'abcd',
-            attribution: '&copy; <a href="https://carto.com/">CARTO</a>'
+            attribution: '&copy; CARTO'
           }).addTo(driverActiveMap);
           driverMarker = L.marker([userCurrentLat, userCurrentLng]).addTo(driverActiveMap);
         } else {
@@ -1003,15 +1004,15 @@ def serve_frontend():
         } catch (e) { showAppToast("خطأ", e.message); }
       }
 
+      // تهيئة خريطة التتبع للزبون مع أيقونة دراجة الموصل المتحركة والمسار الأزرق للرحلة
       async function initClientTrackingMap() {
         if (!trackingMap) {
           trackingMap = L.map('clientTrackingMap').setView([userCurrentLat, userCurrentLng], 15);
           L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
             maxZoom: 19,
             subdomains: 'abcd',
-            attribution: '&copy; <a href="https://carto.com/">CARTO</a>'
+            attribution: '&copy; CARTO'
           }).addTo(trackingMap);
-          trackingMarker = L.marker([userCurrentLat, userCurrentLng]).addTo(trackingMap);
         } else { trackingMap.invalidateSize(); }
         await updateClientLiveTrackingMap();
       }
@@ -1021,9 +1022,40 @@ def serve_frontend():
         if (currentRole !== 'customer' || !trackingMap) return;
         try {
           const { data: orders } = await supabaseClient.from('orders').select('*').eq('customer_id', currentUserId);
-          if (!orders || orders.length === 0) { container.innerHTML = `<p style="font-size: 11px; color: var(--text-muted); text-align: center;">لا توجد طلبات نشطة.</p>`; return; }
+          if (!orders || orders.length === 0) { 
+            container.innerHTML = `<p style="font-size: 11px; color: var(--text-muted); text-align: center;">لا توجد طلبات نشطة حالياً.</p>`; 
+            return; 
+          }
           const activeOrder = orders[orders.length - 1];
-          container.innerHTML = `<div class="indrive-order-card"><div class="card-top-info"><span class="price-badge-indrive">${activeOrder.price_mad} MAD</span><span class="distance-tag">${activeOrder.status}</span></div></div>`;
+          
+          let pLat = activeOrder.pickup_lat || userCurrentLat, pLng = activeOrder.pickup_lng || userCurrentLng;
+          let dLat = activeOrder.dropoff_lat || userCurrentLat, dLng = activeOrder.dropoff_lng || userCurrentLng;
+          let driverLat = activeOrder.driver_lat || pLat;
+          let driverLng = activeOrder.driver_lng || pLng;
+
+          // رسم المسار الأزرق الكامل بين الاستلام والتسليم
+          drawLiveRouteFromOSRM(trackingMap, pLng, pLat, dLng, dLat, '#3b82f6');
+
+          // إضافة أو تحديث دبابيس الاستلام والتسليم وأيقونة الموصل المتحركة (🛵)
+          if (!window.pickupMarker) {
+            window.pickupMarker = L.marker([pLat, pLng]).addTo(trackingMap).bindPopup("📍 نقطة الاستلام");
+            window.dropoffMarker = L.marker([dLat, dLng]).addTo(trackingMap).bindPopup("🎯 نقطة التسليم");
+          }
+
+          const driverIcon = L.divicon ? L.divIcon({ html: '🛵', className: 'driver-emoji-icon', iconSize: [30, 30] }) : null;
+          if (!trackingMarker) {
+            trackingMarker = L.marker([driverLat, driverLng], driverIcon ? { icon: driverIcon } : {}).addTo(trackingMap).bindPopup("🛵 موقع الموصل الحالي");
+          } else {
+            trackingMarker.setLatLng([driverLat, driverLng]);
+          }
+
+          container.innerHTML = `
+            <div class="indrive-order-card">
+              <div class="card-top-info"><span class="price-badge-indrive">${activeOrder.price_mad} MAD</span><span class="distance-tag">حالة الطلب: ${activeOrder.status}</span></div>
+              <div class="location-row"><span class="dot-point pickup"></span><span><b>الاستلام:</b> ${formatShortAddress(activeOrder.pickup_address)}</span></div>
+              <div class="location-row"><span class="dot-point delivery"></span><span><b>التسليم:</b> ${formatShortAddress(activeOrder.dropoff_address)}</span></div>
+            </div>
+          `;
         } catch (e) {}
       }
 
@@ -1139,14 +1171,12 @@ def serve_frontend():
           return;
         }
 
-        // خريطة كازا الكبرى مع التركيز الافتراضي الواضح وأسماء الأحياء والشوارع
         map = L.map('map').setView([userCurrentLat, userCurrentLng], 15);
         
-        // استخدام طبقة CartoDB Voyager لضمان وضوح تام وأسماء دقيقة باللغتين (عربي/فرنسي)
         L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
           maxZoom: 19,
           subdomains: 'abcd',
-          attribution: '&copy; <a href="https://carto.com/">CARTO</a>'
+          attribution: '&copy; CARTO'
         }).addTo(map);
 
         L.marker([userCurrentLat, userCurrentLng]).addTo(map).bindPopup("موقعك الحالي");
