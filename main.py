@@ -424,7 +424,6 @@ def serve_frontend():
         </div>
       </div>
 
-      <!-- موديل اختيار تطبيقات التوجيه المحدث لدعم الاستلام والتسليم بوضوح -->
       <div class="nav-modal-overlay" id="navModalOverlay" onclick="closeNavModal(event)">
         <div class="nav-modal-card">
           <h3 style="color: var(--primary); margin-bottom: 6px; font-size: 15px;" id="navModalTitle">🧭 توجيه الموصل</h3>
@@ -548,10 +547,10 @@ def serve_frontend():
           <div id="adminDriversListContainer"><p style="font-size: 11px; color: var(--text-muted);">جاري تحميل طلبات الموصلين المعلقة...</p></div>
         </div>
 
-        <!-- 5. إنشاء طلب جديد (للزبون) عبر خرائط فائقة الوضوح -->
+        <!-- 5. إنشاء طلب جديد (للزبون) عبر خريطة كازا فائقة الوضوح والأسماء -->
         <div id="clientView" class="view-panel">
-          <h3 style="font-size: 14px; margin-bottom: 6px; color: var(--primary)">🗺️ خريطة الشوارع عالية الوضوح</h3>
-          <div class="pin-instruction-box">🔍 <b>ابحث عن الشارع أو الحي بدقة عالية</b>، أو <b>حرك الدبوس الأحمر</b> لتحديد وجهتك بدقة متناهية.</div>
+          <h3 style="font-size: 14px; margin-bottom: 6px; color: var(--primary)">🗺️ خريطة الدار البيضاء الكبرى (أسماء الأحياء والشوارع واضحة)</h3>
+          <div class="pin-instruction-box">🔍 <b>ابحث عن الحي أو الشارع</b> في شريط البحث، أو <b>حرك الدبوس الأحمر</b> لتحديد نقطة التسليم في الدار البيضاء بدقة مذهلة.</div>
           <div class="map-wrapper">
             <div id="map" style="width: 100%; height: 380px; border-radius: 14px; border: 2px solid var(--primary);"></div>
             <button type="button" class="gps-btn" onclick="safeExecute(goToCurrentLocation)">📍 موقعي الحالي</button>
@@ -944,7 +943,11 @@ def serve_frontend():
       function initLeafletDriverActiveMap(lat, lng) {
         if (!driverActiveMap) {
           driverActiveMap = L.map('driverActiveMap').setView([lat || userCurrentLat, lng || userCurrentLng], 15);
-          L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 }).addTo(driverActiveMap);
+          L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+            maxZoom: 19,
+            subdomains: 'abcd',
+            attribution: '&copy; <a href="https://carto.com/">CARTO</a>'
+          }).addTo(driverActiveMap);
           driverMarker = L.marker([userCurrentLat, userCurrentLng]).addTo(driverActiveMap);
         } else {
           driverActiveMap.invalidateSize();
@@ -955,7 +958,6 @@ def serve_frontend():
       function openNavSelectionModal() { document.getElementById("navModalOverlay").style.display = "flex"; }
       function closeNavModal(e) { if (!e || e.target.id === 'navModalOverlay' || e.target.tagName === 'BUTTON') document.getElementById("navModalOverlay").style.display = "none"; }
       
-      // دالة فتح التطبيق الخارجي بالإحداثيات المضبوطة بالكامل لكل من الاستلام والتسليم
       function openNavigatorApp(type, destinationType) {
         closeNavModal();
         if (!currentActiveOrder) {
@@ -1004,7 +1006,11 @@ def serve_frontend():
       async function initClientTrackingMap() {
         if (!trackingMap) {
           trackingMap = L.map('clientTrackingMap').setView([userCurrentLat, userCurrentLng], 15);
-          L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 }).addTo(trackingMap);
+          L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+            maxZoom: 19,
+            subdomains: 'abcd',
+            attribution: '&copy; <a href="https://carto.com/">CARTO</a>'
+          }).addTo(trackingMap);
           trackingMarker = L.marker([userCurrentLat, userCurrentLng]).addTo(trackingMap);
         } else { trackingMap.invalidateSize(); }
         await updateClientLiveTrackingMap();
@@ -1129,15 +1135,18 @@ def serve_frontend():
       function initLeafletMapForClient() {
         if (map) {
           map.invalidateSize();
-          map.setView([userCurrentLat, userCurrentLng], 16);
+          map.setView([userCurrentLat, userCurrentLng], 15);
           return;
         }
 
-        map = L.map('map').setView([userCurrentLat, userCurrentLng], 16);
+        // خريطة كازا الكبرى مع التركيز الافتراضي الواضح وأسماء الأحياء والشوارع
+        map = L.map('map').setView([userCurrentLat, userCurrentLng], 15);
         
-        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+        // استخدام طبقة CartoDB Voyager لضمان وضوح تام وأسماء دقيقة باللغتين (عربي/فرنسي)
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
           maxZoom: 19,
-          attribution: 'Tiles &copy; Esri &mdash; Source: Esri, DeLorme, NAVTEQ, USGS, Intermap, iPC, NRCAN, and the GIS User Community'
+          subdomains: 'abcd',
+          attribution: '&copy; <a href="https://carto.com/">CARTO</a>'
         }).addTo(map);
 
         L.marker([userCurrentLat, userCurrentLng]).addTo(map).bindPopup("موقعك الحالي");
@@ -1171,12 +1180,12 @@ def serve_frontend():
           const center = e.geocode.center;
           deliveryLat = center.lat; deliveryLng = center.lng;
           deliveryMarker.setLatLng([deliveryLat, deliveryLng]);
-          map.setView([deliveryLat, deliveryLng], 17);
+          map.setView([deliveryLat, deliveryLng], 16);
           updateCoords();
         });
       }
 
-      function goToCurrentLocation() { if (map && userCurrentLat) map.setView([userCurrentLat, userCurrentLng], 17); }
+      function goToCurrentLocation() { if (map && userCurrentLat) map.setView([userCurrentLat, userCurrentLng], 16); }
       function logoutUser() { releaseScreenWakeLock(); localStorage.clear(); location.reload(); }
 
       document.addEventListener("DOMContentLoaded", async () => {
