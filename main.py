@@ -75,7 +75,6 @@ def get_coords_from_address(address_text):
 
 @app.post("/api/get-live-route")
 async def get_live_route(data: RouteRequest):
-    # استخدام OSRM المجاني لحساب المسار الخطوطي أو الطرقي بدلاً من Mapbox
     url = f"http://router.project-osrm.org/route/v1/driving/{data.start_lng},{data.start_lat};{data.end_lng},{data.end_lat}?overview=full&geometries=geojson"
     
     async with httpx.AsyncClient() as client:
@@ -369,7 +368,6 @@ def serve_frontend():
         border: 2px solid var(--warning); color: var(--warning); width: 45px; height: 45px; border-radius: 50%;
         font-size: 20px; display: flex; align-items: center; justify-content: center; cursor: pointer;
       }
-      /* تنسيق شريط البحث الخاص بـ Leaflet Geocoder ليطابق التصميم الداكن */
       .leaflet-control-geocoder { background: var(--card-bg) !important; color: var(--text-main) !important; border-radius: 10px !important; border: 1px solid var(--primary) !important; }
       .leaflet-control-geocoder-form input { background: var(--card-bg) !important; color: var(--text-main) !important; font-family: "Tajawal", sans-serif !important; padding: 6px !important; }
       .leaflet-control-geocoder-results { background: var(--card-bg) !important; color: var(--text-main) !important; border: 1px solid var(--border) !important; }
@@ -686,8 +684,8 @@ def serve_frontend():
 
       let currentUserId = localStorage.getItem("app_user_id") || null;
       let currentUserName = localStorage.getItem("app_user_name") || "";
-      let currentRole = localStorage.getItem("app_user_role"] || "";
-      let currentUserPhone = localStorage.getItem("app_user_phone"] || "";
+      let currentRole = localStorage.getItem("app_user_role") || "";
+      let currentUserPhone = localStorage.getItem("app_user_phone") || "";
 
       let userCurrentLat = 33.5731, userCurrentLng = -7.5898;
       let deliveryLat = null, deliveryLng = null;
@@ -1133,7 +1131,6 @@ def serve_frontend():
           updateCoords();
         });
 
-        // إضافة شريط بحث OpenStreetMap المجاني القوي جداً
         const geocoder = L.Control.geocoder({
           defaultMarkGeocode: false,
           placeholder: 'ابحث عن أي شارع أو حي في الدار البيضاء...',
