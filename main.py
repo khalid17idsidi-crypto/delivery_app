@@ -545,10 +545,10 @@ def serve_frontend():
           <div id="adminDriversListContainer"><p style="font-size: 11px; color: var(--text-muted);">جاري تحميل طلبات الموصلين المعلقة...</p></div>
         </div>
 
-        <!-- 5. إنشاء طلب جديد (للزبون) عبر Leaflet و OpenStreetMap -->
+        <!-- 5. إنشاء طلب جديد (للزبون) عبر خرائط فائقة الوضوح -->
         <div id="clientView" class="view-panel">
-          <h3 style="font-size: 14px; margin-bottom: 6px; color: var(--primary)">🗺️ خريطة OpenStreetMap والأحياء</h3>
-          <div class="pin-instruction-box">🔍 <b>ابحث عن الشارع أو الحي</b> في شريط البحث، أو <b>حرك الدبوس الأحمر</b> أو <b>انقر على الخريطة</b> لتحديد وجهة التسليم بدقة.</div>
+          <h3 style="font-size: 14px; margin-bottom: 6px; color: var(--primary)">🗺️ خريطة الشوارع عالية الوضوح</h3>
+          <div class="pin-instruction-box">🔍 <b>ابحث عن الشارع أو الحي بدقة عالية</b>، أو <b>حرك الدبوس الأحمر</b> لتحديد وجهتك بدقة متناهية.</div>
           <div class="map-wrapper">
             <div id="map" style="width: 100%; height: 380px; border-radius: 14px; border: 2px solid var(--primary);"></div>
             <button type="button" class="gps-btn" onclick="safeExecute(goToCurrentLocation)">📍 موقعي الحالي</button>
@@ -755,7 +755,7 @@ def serve_frontend():
         navigator.geolocation.getCurrentPosition(pos => {
           userCurrentLat = pos.coords.latitude; userCurrentLng = pos.coords.longitude;
           if (overlay) overlay.style.display = "none";
-          if (map) map.setView([userCurrentLat, userCurrentLng], 14);
+          if (map) map.setView([userCurrentLat, userCurrentLng], 15);
         }, () => { if (overlay) overlay.style.display = "none"; }, { enableHighAccuracy: true });
       }
 
@@ -940,12 +940,12 @@ def serve_frontend():
 
       function initLeafletDriverActiveMap(lat, lng) {
         if (!driverActiveMap) {
-          driverActiveMap = L.map('driverActiveMap').setView([lat || userCurrentLat, lng || userCurrentLng], 14);
-          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(driverActiveMap);
+          driverActiveMap = L.map('driverActiveMap').setView([lat || userCurrentLat, lng || userCurrentLng], 15);
+          L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 }).addTo(driverActiveMap);
           driverMarker = L.marker([userCurrentLat, userCurrentLng]).addTo(driverActiveMap);
         } else {
           driverActiveMap.invalidateSize();
-          driverActiveMap.setView([lat, lng], 14);
+          driverActiveMap.setView([lat, lng], 15);
         }
       }
 
@@ -979,8 +979,8 @@ def serve_frontend():
 
       async function initClientTrackingMap() {
         if (!trackingMap) {
-          trackingMap = L.map('clientTrackingMap').setView([userCurrentLat, userCurrentLng], 14);
-          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(trackingMap);
+          trackingMap = L.map('clientTrackingMap').setView([userCurrentLat, userCurrentLng], 15);
+          L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 }).addTo(trackingMap);
           trackingMarker = L.marker([userCurrentLat, userCurrentLng]).addTo(trackingMap);
         } else { trackingMap.invalidateSize(); }
         await updateClientLiveTrackingMap();
@@ -1105,12 +1105,18 @@ def serve_frontend():
       function initLeafletMapForClient() {
         if (map) {
           map.invalidateSize();
-          map.setView([userCurrentLat, userCurrentLng], 14);
+          map.setView([userCurrentLat, userCurrentLng], 16);
           return;
         }
 
-        map = L.map('map').setView([userCurrentLat, userCurrentLng], 14);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+        // تكبير افتراضي أعلى (16) لرؤية الشوارع والأزقة بوضوح أكبر
+        map = L.map('map').setView([userCurrentLat, userCurrentLng], 16);
+        
+        // استخدام طبقة شوارع فائقة الوضوح والدقة (Esri World Street Map)
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+          maxZoom: 19,
+          attribution: 'Tiles &copy; Esri &mdash; Source: Esri, DeLorme, NAVTEQ, USGS, Intermap, iPC, NRCAN, and the GIS User Community'
+        }).addTo(map);
 
         L.marker([userCurrentLat, userCurrentLng]).addTo(map).bindPopup("موقعك الحالي");
 
@@ -1143,12 +1149,12 @@ def serve_frontend():
           const center = e.geocode.center;
           deliveryLat = center.lat; deliveryLng = center.lng;
           deliveryMarker.setLatLng([deliveryLat, deliveryLng]);
-          map.setView([deliveryLat, deliveryLng], 15);
+          map.setView([deliveryLat, deliveryLng], 17);
           updateCoords();
         });
       }
 
-      function goToCurrentLocation() { if (map && userCurrentLat) map.setView([userCurrentLat, userCurrentLng], 16); }
+      function goToCurrentLocation() { if (map && userCurrentLat) map.setView([userCurrentLat, userCurrentLng], 17); }
       function logoutUser() { releaseScreenWakeLock(); localStorage.clear(); location.reload(); }
 
       document.addEventListener("DOMContentLoaded", async () => {
