@@ -695,7 +695,7 @@ def serve_frontend():
 
       let currentUserId = localStorage.getItem("app_user_id") || null;
       let currentUserName = localStorage.getItem("app_user_name") || "";
-      let currentRole = localStorage.getItem("app_user_role"] || "";
+      let currentRole = localStorage.getItem("app_user_role") || "";
       let currentUserPhone = localStorage.getItem("app_user_phone") || "";
 
       let userCurrentLat = 33.5731, userCurrentLng = -7.5898;
