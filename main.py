@@ -243,8 +243,13 @@ def serve_frontend():
     
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
 
-    <!-- Google Maps API JavaScript (مفتاح خرائط جوجل الرسمي) -->
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBLK_DiAtM0aW8uBnDhJ9ZOyeqmtF94SCQ&libraries=places"></script>
+    <!-- مكتبة Mapbox GL JS و CSS (أعلى جودة ووضوح لخرائط الدار البيضاء) -->
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />
+
+    <!-- Mapbox Geocoder لخدمة البحث عن الشوارع والأحياء -->
+    <script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.min.js"></script>
+    <link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.css" type="text/css" />
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.8/dist/umd/supabase.min.js"></script>
 
@@ -363,7 +368,13 @@ def serve_frontend():
         border: 2px solid var(--warning); color: var(--warning); width: 45px; height: 45px; border-radius: 50%;
         font-size: 20px; display: flex; align-items: center; justify-content: center; cursor: pointer;
       }
-      .pac-card { background-color: var(--card-bg); color: var(--text-main); padding: 6px; border-radius: 8px; border: 1px solid var(--primary); margin-bottom: 8px; width: 100%; font-size: 12px; }
+      /* تخصيص بحث Mapbox Geocoder */
+      .mapboxgl-ctrl-geocoder { max-width: 100% !important; width: 100% !important; background: var(--card-bg) !important; color: var(--text-main) !important; border-radius: 10px !important; border: 1px solid var(--primary) !important; box-shadow: none !important; font-family: "Tajawal", sans-serif !important; margin-bottom: 10px !important; }
+      .mapboxgl-ctrl-geocoder input { color: var(--text-main) !important; font-family: "Tajawal", sans-serif !important; padding: 10px 35px !important; }
+      .mapboxgl-ctrl-geocoder .mapboxgl-ctrl-geocoder--icon { fill: var(--primary) !important; }
+      .mapboxgl-ctrl-geocoder .suggestions { background: var(--card-bg) !important; border: 1px solid var(--border) !important; }
+      .mapboxgl-ctrl-geocoder .suggestions > li > a { color: var(--text-main) !important; }
+      .mapboxgl-ctrl-geocoder .suggestions > li > a:hover { background: rgba(16, 185, 129, 0.2) !important; }
 
       .field-group { margin-bottom: 12px; text-align: inherit; position: relative; }
       .field-group label { display: block; font-size: 11px; color: var(--text-muted); margin-bottom: 6px; }
@@ -538,11 +549,11 @@ def serve_frontend():
           <div id="adminDriversListContainer"><p style="font-size: 11px; color: var(--text-muted);">جاري تحميل طلبات الموصلين المعلقة...</p></div>
         </div>
 
-        <!-- 5. إنشاء طلب جديد (للزبون) باستخدام خرائط جوجل الرسمية -->
+        <!-- 5. إنشاء طلب جديد (للزبون) باستخدام Mapbox GL -->
         <div id="clientView" class="view-panel">
-          <h3 style="font-size: 14px; margin-bottom: 6px; color: var(--primary)">🗺️ خريطة جوجل الرسمية - الدار البيضاء الكبرى</h3>
+          <h3 style="font-size: 14px; margin-bottom: 6px; color: var(--primary)">🗺️️ خريطة Mapbox - الدار البيضاء الكبرى</h3>
           <div class="pin-instruction-box">🔍 <b>ابحث عن الحي أو الشارع</b> في شريط البحث أدناه، أو <b>حرك الدبوس الأحمر</b> لتحديد نقطة التسليم بدقة تامة.</div>
-          <input id="pac-input" class="pac-card" type="text" placeholder="ابحث عن أي حي أو شارع في الدار البيضاء..." />
+          <div id="geocoder-container" style="margin-bottom: 8px;"></div>
           <div class="map-wrapper">
             <div id="map" style="width: 100%; height: 380px; border-radius: 14px; border: 2px solid var(--primary);"></div>
             <button type="button" class="gps-btn" onclick="safeExecute(goToCurrentLocation)">📍 موقعي الحالي</button>
@@ -554,7 +565,7 @@ def serve_frontend():
           <button class="btn-submit" onclick="safeExecute(createNewOrder)">🚀 إرسال الطلب وحساب السعر المضبوط</button>
         </div>
 
-        <!-- 6. تتبع طلبات الزبون (بشكل InDrive احترافي مع خرائط جوجل والمسار الأزرق ودراجة الموصل) -->
+        <!-- 6. تتبع طلبات الزبون (Mapbox مع المسار الأزرق ودراجة الموصل المتحركة) -->
         <div id="clientOrdersView" class="view-panel">
           <h3 style="font-size: 14px; margin-bottom: 10px; color: var(--primary)">🛵 التتبع الحي المباشر لموقع الموصل</h3>
           <div id="clientTrackingMap" style="width: 100%; height: 400px; border-radius: 14px; border: 1px solid var(--border); margin-top: 10px;"></div>
@@ -673,8 +684,11 @@ def serve_frontend():
       function safeExecute(fn) { try { if (typeof fn === 'function') fn(); } catch (error) { console.error("Execution Error:", error); } }
 
       const SUPABASE_URL = "https://cauujrnxtqswjzqhphyq.supabase.co";
-      const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNhdXVqcm54dHFzd2p6cWhwaHlxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzNDEwNDMsImV4cCI6MjEwMzkxNzA0M30.xIwYyOcOaH-3VEkfuf2T73tHMRn3oAL2_RjNNPueQKU";
+      const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNhdXVqcm54dHFzd2p6cWhwaHlxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4ODM0MTA0MywiZXhwIjoyMTAzOTE3MDQzfQ.17AG1uMHj14ZNVuzp56-9_Z2KYeG50Oo3k__kDbhUok";
       const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+      // مفتاح Mapbox العام الافتراضي
+      mapboxgl.accessToken = 'pk.eyJ1IjoiYWRtaW5hcHAxMjMiLCJhIjoiY2x3aTJrZGRuMDA2eDJqb3JvZnV3czh0dSJ9.placeholder';
 
       let currentUserId = localStorage.getItem("app_user_id") || null;
       let currentUserName = localStorage.getItem("app_user_name") || "";
@@ -683,8 +697,8 @@ def serve_frontend():
 
       let userCurrentLat = 33.5731, userCurrentLng = -7.5898;
       let deliveryLat = null, deliveryLng = null;
-      let mapInstance = null, deliveryMarker = null, trackingMapInstance = null, trackingMarker = null;
-      let driverActiveMapInstance = null, driverMarker = null, currentActiveOrder = null;
+      let mapboxInstance = null, deliveryMarker = null, trackingMapInstance = null, trackingDriverMarker = null;
+      let driverActiveMapInstance = null, driverActiveMarker = null, currentActiveOrder = null;
       let currentAuthMode = 'login', selectedRechargeMethod = 'cih_transfer', wakeLockInstance = null;
       let radarOrdersCache = [], radarInterval = null, clientTrackingInterval = null, driverLocationUpdateInterval = null;
 
@@ -705,9 +719,9 @@ def serve_frontend():
         return R * c;
       }
 
-      // رسم مسار الرحلة الأزرق الاحترافي على خريطة جوجل
-      async function drawGooglePolylineRoute(googleMap, startLat, startLng, endLat, endLng, polylineColor = '#3b82f6') {
-        if (!googleMap || !startLat || !startLng || !endLat || !endLng) return;
+      // رسم المسار الأزرق الاحترافي عبر Mapbox Source & Layer
+      async function drawMapboxRoute(mapObj, startLng, startLat, endLng, endLat, layerId = 'route-layer', lineColor = '#3b82f6') {
+        if (!mapObj || !startLng || !startLat || !endLng || !endLat) return;
         try {
           const response = await fetch('/api/get-live-route', {
             method: 'POST',
@@ -716,20 +730,25 @@ def serve_frontend():
           });
           const result = await response.json();
           if (result.status === 'success') {
-            if (googleMap._currentPolyline) {
-              googleMap._currentPolyline.setMap(null);
+            const geojson = {
+              type: 'Feature',
+              properties: {},
+              geometry: result.route_geometry
+            };
+            if (mapObj.getSource(layerId)) {
+              mapObj.getSource(layerId).setData(geojson);
+            } else {
+              mapObj.addSource(layerId, { type: 'geojson', data: geojson });
+              mapObj.addLayer({
+                id: layerId,
+                type: 'line',
+                source: layerId,
+                layout: { 'line-join': 'round', 'line-cap': 'round' },
+                paint: { 'line-color': lineColor, 'line-width': 6, 'line-opacity': 0.85 }
+              });
             }
-            const pathCoords = result.route_geometry.coordinates.map(c => ({ lat: c[1], lng: c[0] }));
-            googleMap._currentPolyline = new google.maps.Polyline({
-              path: pathCoords,
-              geodesic: true,
-              strokeColor: polylineColor,
-              strokeOpacity: 0.85,
-              strokeWeight: 6
-            });
-            googleMap._currentPolyline.setMap(googleMap);
           }
-        } catch (e) { console.error("Google Route Error:", e); }
+        } catch (e) { console.error("Mapbox Route Error:", e); }
       }
 
       function selectWalletRechargeMethod(method, el) {
@@ -757,7 +776,7 @@ def serve_frontend():
         navigator.geolocation.getCurrentPosition(pos => {
           userCurrentLat = pos.coords.latitude; userCurrentLng = pos.coords.longitude;
           if (overlay) overlay.style.display = "none";
-          if (mapInstance) mapInstance.setCenter({ lat: userCurrentLat, lng: userCurrentLng });
+          if (mapboxInstance) mapboxInstance.setCenter([userCurrentLng, userCurrentLat]);
         }, () => { if (overlay) overlay.style.display = "none"; }, { enableHighAccuracy: true });
       }
 
@@ -785,13 +804,13 @@ def serve_frontend():
         }
 
         if (viewId === 'clientOrdersView' && currentRole === 'customer') {
-          setTimeout(() => initGoogleClientTrackingMap(), 300);
-          if (!clientTrackingInterval) clientTrackingInterval = setInterval(() => { if (currentRole === 'customer' && document.getElementById('clientOrdersView').classList.contains('active')) updateGoogleClientLiveTracking(); }, 4000);
+          setTimeout(() => initMapboxClientTracking(), 300);
+          if (!clientTrackingInterval) clientTrackingInterval = setInterval(() => { if (currentRole === 'customer' && document.getElementById('clientOrdersView').classList.contains('active')) updateMapboxClientLiveTracking(); }, 4000);
         } else {
           if (clientTrackingInterval) { clearInterval(clientTrackingInterval); clientTrackingInterval = null; }
         }
 
-        if (viewId === 'clientView') setTimeout(() => initGoogleMapForClient(), 300);
+        if (viewId === 'clientView') setTimeout(() => initMapboxClientMap(), 300);
         if (viewId === 'adminVerificationView') loadAdminVerificationQueue();
         if (viewId === 'performanceView') loadDriverPerformanceRealData();
         if (viewId === 'earningsView') loadDriverEarningsRealData('day');
@@ -935,21 +954,22 @@ def serve_frontend():
         document.getElementById("driverActiveOrderContainer").style.display = "block";
         document.getElementById("ordersListContainer").style.display = "none";
         setTimeout(() => {
-          initGoogleDriverActiveMap(targetNavLat, targetNavLng);
-          drawGooglePolylineRoute(driverActiveMapInstance, userCurrentLat, userCurrentLng, targetNavLat, targetNavLng, '#3b82f6');
+          initMapboxDriverActiveMap(targetNavLng, targetNavLat);
+          drawMapboxRoute(driverActiveMapInstance, userCurrentLng, userCurrentLat, targetNavLng, targetNavLat, 'driver-route', '#3b82f6');
         }, 200);
       }
 
-      function initGoogleDriverActiveMap(lat, lng) {
+      function initMapboxDriverActiveMap(lng, lat) {
         if (!driverActiveMapInstance) {
-          driverActiveMapInstance = new google.maps.Map(document.getElementById('driverActiveMap'), {
-            center: { lat: lat || userCurrentLat, lng: lng || userCurrentLng },
-            zoom: 15,
-            disableDefaultUI: true
+          driverActiveMapInstance = new mapboxgl.Map({
+            container: 'driverActiveMap',
+            style: 'mapbox://styles/mapbox/streets-v12',
+            center: [lng || userCurrentLng, lat || userCurrentLat],
+            zoom: 15
           });
-          driverMarker = new google.maps.Marker({ position: { lat: userCurrentLat, lng: userCurrentLng }, map: driverActiveMapInstance, title: "موقعك" });
+          driverActiveMarker = new mapboxgl.Marker({ color: '#10b981' }).setLngLat([userCurrentLng, userCurrentLat]).addTo(driverActiveMapInstance);
         } else {
-          driverActiveMapInstance.setCenter({ lat, lng });
+          driverActiveMapInstance.setCenter([lng, lat]);
         }
       }
 
@@ -958,10 +978,7 @@ def serve_frontend():
       
       function openNavigatorApp(type, destinationType) {
         closeNavModal();
-        if (!currentActiveOrder) {
-          showAppToast("تنبيه", "لا يوجد طلب نشط حالياً.");
-          return;
-        }
+        if (!currentActiveOrder) { showAppToast("تنبيه", "لا يوجد طلب نشط حالياً."); return; }
         let destLat = destinationType === 'pickup' ? currentActiveOrder.pickup_lat : currentActiveOrder.dropoff_lat;
         let destLng = destinationType === 'pickup' ? currentActiveOrder.pickup_lng : currentActiveOrder.dropoff_lng;
         if (!destLat || !destLng) { showAppToast("تنبيه", "إحداثيات الوجهة غير متوفرة."); return; }
@@ -988,19 +1005,20 @@ def serve_frontend():
         } catch (e) { showAppToast("خطأ", e.message); }
       }
 
-      // تهيئة خريطة التتبع الحي للزبون باستخدام خريطة جوجل والمسار الأزرق ودراجة الموصل
-      async function initGoogleClientTrackingMap() {
+      // تهيئة خريطة تتبع الزبون بـ Mapbox مع المسار الأزرق ودراجة الموصل المتحركة
+      async function initMapboxClientTracking() {
         if (!trackingMapInstance) {
-          trackingMapInstance = new google.maps.Map(document.getElementById('clientTrackingMap'), {
-            center: { lat: userCurrentLat, lng: userCurrentLng },
-            zoom: 15,
-            disableDefaultUI: true
+          trackingMapInstance = new mapboxgl.Map({
+            container: 'clientTrackingMap',
+            style: 'mapbox://styles/mapbox/streets-v12',
+            center: [userCurrentLng, userCurrentLat],
+            zoom: 15
           });
         }
-        await updateGoogleClientLiveTracking();
+        await updateMapboxClientLiveTracking();
       }
 
-      async function updateGoogleClientLiveTracking() {
+      async function updateMapboxClientLiveTracking() {
         const container = document.getElementById("clientOrdersListContainer");
         if (currentRole !== 'customer' || !trackingMapInstance) return;
         try {
@@ -1014,17 +1032,20 @@ def serve_frontend():
           let dLat = activeOrder.dropoff_lat || userCurrentLat, dLng = activeOrder.dropoff_lng || userCurrentLng;
           let driverLat = activeOrder.driver_lat || pLat, driverLng = activeOrder.driver_lng || pLng;
 
-          drawGooglePolylineRoute(trackingMapInstance, pLat, pLng, dLat, dLng, '#3b82f6');
+          drawMapboxRoute(trackingMapInstance, pLng, pLat, dLng, dLat, 'tracking-route', '#3b82f6');
 
-          if (!window.gPickupMarker) {
-            window.gPickupMarker = new google.maps.Marker({ position: { lat: pLat, lng: pLng }, map: trackingMapInstance, title: "نقطة الاستلام" });
-            window.gDropoffMarker = new google.maps.Marker({ position: { lat: dLat, lng: dLng }, map: trackingMapInstance, title: "نقطة التسليم" });
+          if (!window.mapboxPickupMarker) {
+            window.mapboxPickupMarker = new mapboxgl.Marker({ color: '#3b82f6' }).setLngLat([pLng, pLat]).addTo(trackingMapInstance);
+            window.mapboxDropoffMarker = new mapboxgl.Marker({ color: '#ef4444' }).setLngLat([dLng, dLat]).addTo(trackingMapInstance);
           }
 
-          if (!trackingMarker) {
-            trackingMarker = new google.maps.Marker({ position: { lat: driverLat, lng: driverLng }, map: trackingMapInstance, title: "موقع الموصل 🛵" });
+          if (!trackingDriverMarker) {
+            const el = document.createElement('div');
+            el.innerHTML = '🛵';
+            el.style.fontSize = '24px';
+            trackingDriverMarker = new mapboxgl.Marker(el).setLngLat([driverLng, driverLat]).addTo(trackingMapInstance);
           } else {
-            trackingMarker.setPosition({ lat: driverLat, lng: driverLng });
+            trackingDriverMarker.setLngLat([driverLng, driverLat]);
           }
 
           container.innerHTML = `
@@ -1142,30 +1163,25 @@ def serve_frontend():
 
       async function submitWalletTopupRequest() { showAppToast("نجاح", "تم إرسال طلب الشحن."); }
 
-      // تهيئة خريطة جوجل لإنشاء الطلب في الدار البيضاء مع شريط البحث الرسمي (Places Autocomplete)
-      function initGoogleMapForClient() {
-        if (mapInstance) {
-          google.maps.event.trigger(mapInstance, 'resize');
-          mapInstance.setCenter({ lat: userCurrentLat, lng: userCurrentLng });
+      // تهيئة خريطة Mapbox لإنشاء الطلب في الدار البيضاء مع شريط البحث (Geocoder)
+      function initMapboxClientMap() {
+        if (mapboxInstance) {
+          mapboxInstance.resize();
+          mapboxInstance.setCenter([userCurrentLng, userCurrentLat]);
           return;
         }
 
-        const casaCenter = { lat: userCurrentLat, lng: userCurrentLng };
-        mapInstance = new google.maps.Map(document.getElementById('map'), {
-          center: casaCenter,
-          zoom: 15,
-          mapTypeControl: false,
-          streetViewControl: false,
-          fullscreenControl: false
+        mapboxInstance = new mapboxgl.Map({
+          container: 'map',
+          style: 'mapbox://styles/mapbox/streets-v12',
+          center: [userCurrentLng, userCurrentLat],
+          zoom: 15
         });
 
         deliveryLat = userCurrentLat + 0.003; deliveryLng = userCurrentLng + 0.003;
-        deliveryMarker = new google.maps.Marker({
-          position: { lat: deliveryLat, lng: deliveryLng },
-          map: mapInstance,
-          draggable: true,
-          title: "اسحب لتحديد نقطة التسليم"
-        });
+        deliveryMarker = new mapboxgl.Marker({ color: '#ef4444', draggable: true })
+          .setLngLat([deliveryLng, deliveryLat])
+          .addTo(mapboxInstance);
 
         const updateCoords = (lat, lng) => {
           deliveryLat = lat; deliveryLng = lng;
@@ -1173,40 +1189,39 @@ def serve_frontend():
         };
         updateCoords(deliveryLat, deliveryLng);
 
-        google.maps.event.addListener(deliveryMarker, 'dragend', function() {
-          const pos = deliveryMarker.getPosition();
-          updateCoords(pos.lat(), pos.lng());
+        deliveryMarker.on('dragend', () => {
+          const lngLat = deliveryMarker.getLngLat();
+          updateCoords(lngLat.lat, lngLat.lng);
         });
 
-        google.maps.event.addListener(mapInstance, 'click', function(e) {
-          deliveryMarker.setPosition(e.latLng);
-          updateCoords(e.latLng.lat(), e.latLng.lng());
+        mapboxInstance.on('click', (e) => {
+          deliveryMarker.setLngLat(e.lngLat);
+          updateCoords(e.lngLat.lat, e.lngLat.lng);
         });
 
-        // تفعيل بحث الأماكن والشوارع بخرائط جوجل (Places Autocomplete) المخصص للدار البيضاء
-        const input = document.getElementById('pac-input');
-        const autocomplete = new google.maps.places.Autocomplete(input, {
-          componentRestrictions: { country: "ma" },
-          bounds: new google.maps.LatLngBounds(
-            new google.maps.LatLng(33.35, -7.85),
-            new google.maps.LatLng(33.75, -7.35)
-          ),
-          strictBounds: false
+        // إضافة شريط البحث المخصص للمناطق والشوارع في الدار البيضاء
+        const geocoder = new MapboxGeocoder({
+          accessToken: mapboxgl.accessToken,
+          mapboxgl: mapboxgl,
+          marker: false,
+          placeholder: 'ابحث عن أي حي أو شارع في الدار البيضاء...',
+          bbox: [-7.85, 33.35, -7.35, 33.75], // حدود الدار البيضاء الكبرى
+          proximity: { longitude: userCurrentLng, latitude: userCurrentLat }
         });
 
-        autocomplete.bindTo('bounds', mapInstance);
+        const geocoderContainer = document.getElementById('geocoder-container');
+        if (geocoderContainer && !geocoderContainer.hasChildNodes()) {
+          geocoderContainer.appendChild(geocoder.onAdd(mapboxInstance));
+        }
 
-        autocomplete.addListener('place_changed', function() {
-          const place = autocomplete.getPlace();
-          if (!place.geometry || !place.geometry.location) return;
-          mapInstance.setCenter(place.geometry.location);
-          mapInstance.setZoom(16);
-          deliveryMarker.setPosition(place.geometry.location);
-          updateCoords(place.geometry.location.lat(), place.geometry.location.lng());
+        geocoder.on('result', (e) => {
+          const coords = e.result.center;
+          deliveryMarker.setLngLat(coords);
+          updateCoords(coords[1], coords[0]);
         });
       }
 
-      function goToCurrentLocation() { if (mapInstance && userCurrentLat) mapInstance.setCenter({ lat: userCurrentLat, lng: userCurrentLng }); }
+      function goToCurrentLocation() { if (mapboxInstance && userCurrentLat) mapboxInstance.setCenter([userCurrentLng, userCurrentLat]); }
       function logoutUser() { releaseScreenWakeLock(); localStorage.clear(); location.reload(); }
 
       document.addEventListener("DOMContentLoaded", async () => {
