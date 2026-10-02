@@ -243,11 +243,11 @@ def serve_frontend():
     
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
 
-    <!-- مكتبة Mapbox GL JS و CSS (أعلى جودة ووضوح لخرائط الدار البيضاء) -->
+    <!-- مكتبة Mapbox GL JS و CSS -->
     <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
     <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />
 
-    <!-- Mapbox Geocoder لخدمة البحث عن الشوارع والأحياء -->
+    <!-- Mapbox Geocoder للبحث -->
     <script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.min.js"></script>
     <link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.css" type="text/css" />
 
@@ -368,7 +368,6 @@ def serve_frontend():
         border: 2px solid var(--warning); color: var(--warning); width: 45px; height: 45px; border-radius: 50%;
         font-size: 20px; display: flex; align-items: center; justify-content: center; cursor: pointer;
       }
-      /* تخصيص بحث Mapbox Geocoder */
       .mapboxgl-ctrl-geocoder { max-width: 100% !important; width: 100% !important; background: var(--card-bg) !important; color: var(--text-main) !important; border-radius: 10px !important; border: 1px solid var(--primary) !important; box-shadow: none !important; font-family: "Tajawal", sans-serif !important; margin-bottom: 10px !important; }
       .mapboxgl-ctrl-geocoder input { color: var(--text-main) !important; font-family: "Tajawal", sans-serif !important; padding: 10px 35px !important; }
       .mapboxgl-ctrl-geocoder .mapboxgl-ctrl-geocoder--icon { fill: var(--primary) !important; }
@@ -551,7 +550,7 @@ def serve_frontend():
 
         <!-- 5. إنشاء طلب جديد (للزبون) باستخدام Mapbox GL -->
         <div id="clientView" class="view-panel">
-          <h3 style="font-size: 14px; margin-bottom: 6px; color: var(--primary)">🗺️️ خريطة Mapbox - الدار البيضاء الكبرى</h3>
+          <h3 style="font-size: 14px; margin-bottom: 6px; color: var(--primary)">🗺 خريطة Mapbox - الدار البيضاء الكبرى</h3>
           <div class="pin-instruction-box">🔍 <b>ابحث عن الحي أو الشارع</b> في شريط البحث أدناه، أو <b>حرك الدبوس الأحمر</b> لتحديد نقطة التسليم بدقة تامة.</div>
           <div id="geocoder-container" style="margin-bottom: 8px;"></div>
           <div class="map-wrapper">
@@ -565,7 +564,7 @@ def serve_frontend():
           <button class="btn-submit" onclick="safeExecute(createNewOrder)">🚀 إرسال الطلب وحساب السعر المضبوط</button>
         </div>
 
-        <!-- 6. تتبع طلبات الزبون (Mapbox مع المسار الأزرق ودراجة الموصل المتحركة) -->
+        <!-- 6. تتبع طلبات الزبون -->
         <div id="clientOrdersView" class="view-panel">
           <h3 style="font-size: 14px; margin-bottom: 10px; color: var(--primary)">🛵 التتبع الحي المباشر لموقع الموصل</h3>
           <div id="clientTrackingMap" style="width: 100%; height: 400px; border-radius: 14px; border: 1px solid var(--border); margin-top: 10px;"></div>
@@ -687,8 +686,8 @@ def serve_frontend():
       const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNhdXVqcm54dHFzd2p6cWhwaHlxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4ODM0MTA0MywiZXhwIjoyMTAzOTE3MDQzfQ.17AG1uMHj14ZNVuzp56-9_Z2KYeG50Oo3k__kDbhUok";
       const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-      // مفتاح Mapbox العام الافتراضي
-      mapboxgl.accessToken = 'pk.eyJ1IjoiYWRtaW5hcHAxMjMiLCJhIjoiY2x3aTJrZGRuMDA2eDJqb3JvZnV3czh0dSJ9.placeholder';
+      // مفتاح Mapbox الشخصي الخاص بك المعتمد الآن رسمياً
+      mapboxgl.accessToken = 'pk.eyJ1IjoiaWRzaWRpIiwiYSI6ImNtdTJscHkybjAwbW8yeXF1cXFhdXozaWMifQ.FDKkwkz9kdug1cghlLNChw';
 
       let currentUserId = localStorage.getItem("app_user_id") || null;
       let currentUserName = localStorage.getItem("app_user_name") || "";
@@ -719,7 +718,6 @@ def serve_frontend():
         return R * c;
       }
 
-      // رسم المسار الأزرق الاحترافي عبر Mapbox Source & Layer
       async function drawMapboxRoute(mapObj, startLng, startLat, endLng, endLat, layerId = 'route-layer', lineColor = '#3b82f6') {
         if (!mapObj || !startLng || !startLat || !endLng || !endLat) return;
         try {
@@ -738,6 +736,10 @@ def serve_frontend():
             if (mapObj.getSource(layerId)) {
               mapObj.getSource(layerId).setData(geojson);
             } else {
+              if (!mapObj.isStyleLoaded()) {
+                mapObj.on('load', () => drawMapboxRoute(mapObj, startLng, startLat, endLng, endLat, layerId, lineColor));
+                return;
+              }
               mapObj.addSource(layerId, { type: 'geojson', data: geojson });
               mapObj.addLayer({
                 id: layerId,
@@ -776,7 +778,7 @@ def serve_frontend():
         navigator.geolocation.getCurrentPosition(pos => {
           userCurrentLat = pos.coords.latitude; userCurrentLng = pos.coords.longitude;
           if (overlay) overlay.style.display = "none";
-          if (mapboxInstance) mapboxInstance.setCenter([userCurrentLng, userCurrentLat]);
+          if (mapboxInstance) { mapboxInstance.resize(); mapboxInstance.setCenter([userCurrentLng, userCurrentLat]); }
         }, () => { if (overlay) overlay.style.display = "none"; }, { enableHighAccuracy: true });
       }
 
@@ -969,6 +971,7 @@ def serve_frontend():
           });
           driverActiveMarker = new mapboxgl.Marker({ color: '#10b981' }).setLngLat([userCurrentLng, userCurrentLat]).addTo(driverActiveMapInstance);
         } else {
+          driverActiveMapInstance.resize();
           driverActiveMapInstance.setCenter([lng, lat]);
         }
       }
@@ -1005,7 +1008,6 @@ def serve_frontend():
         } catch (e) { showAppToast("خطأ", e.message); }
       }
 
-      // تهيئة خريطة تتبع الزبون بـ Mapbox مع المسار الأزرق ودراجة الموصل المتحركة
       async function initMapboxClientTracking() {
         if (!trackingMapInstance) {
           trackingMapInstance = new mapboxgl.Map({
@@ -1014,6 +1016,8 @@ def serve_frontend():
             center: [userCurrentLng, userCurrentLat],
             zoom: 15
           });
+        } else {
+          trackingMapInstance.resize();
         }
         await updateMapboxClientLiveTracking();
       }
@@ -1163,7 +1167,6 @@ def serve_frontend():
 
       async function submitWalletTopupRequest() { showAppToast("نجاح", "تم إرسال طلب الشحن."); }
 
-      // تهيئة خريطة Mapbox لإنشاء الطلب في الدار البيضاء مع شريط البحث (Geocoder)
       function initMapboxClientMap() {
         if (mapboxInstance) {
           mapboxInstance.resize();
@@ -1199,13 +1202,12 @@ def serve_frontend():
           updateCoords(e.lngLat.lat, e.lngLat.lng);
         });
 
-        // إضافة شريط البحث المخصص للمناطق والشوارع في الدار البيضاء
         const geocoder = new MapboxGeocoder({
           accessToken: mapboxgl.accessToken,
           mapboxgl: mapboxgl,
           marker: false,
           placeholder: 'ابحث عن أي حي أو شارع في الدار البيضاء...',
-          bbox: [-7.85, 33.35, -7.35, 33.75], // حدود الدار البيضاء الكبرى
+          bbox: [-7.85, 33.35, -7.35, 33.75],
           proximity: { longitude: userCurrentLng, latitude: userCurrentLat }
         });
 
@@ -1221,7 +1223,12 @@ def serve_frontend():
         });
       }
 
-      function goToCurrentLocation() { if (mapboxInstance && userCurrentLat) mapboxInstance.setCenter([userCurrentLng, userCurrentLat]); }
+      function goToCurrentLocation() {
+        if (mapboxInstance && userCurrentLat) {
+          mapboxInstance.resize();
+          mapboxInstance.setCenter([userCurrentLng, userCurrentLat]);
+        }
+      }
       function logoutUser() { releaseScreenWakeLock(); localStorage.clear(); location.reload(); }
 
       document.addEventListener("DOMContentLoaded", async () => {
