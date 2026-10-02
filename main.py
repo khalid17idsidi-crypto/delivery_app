@@ -424,13 +424,16 @@ def serve_frontend():
         </div>
       </div>
 
+      <!-- موديل اختيار تطبيقات التوجيه المحدث لدعم الاستلام والتسليم بوضوح -->
       <div class="nav-modal-overlay" id="navModalOverlay" onclick="closeNavModal(event)">
         <div class="nav-modal-card">
-          <h3 style="color: var(--primary); margin-bottom: 10px; font-size: 15px;">🧭 اختر تطبيق التوجيه</h3>
-          <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 15px;">اختر التطبيق المفضل لديك للانتقال المباشر للوجهة:</p>
-          <button class="btn-submit" style="margin-bottom: 10px; background: #3b82f6;" onclick="openNavigatorApp('google')">🗺️ فتح عبر Google Maps</button>
-          <button class="btn-submit" style="background: #0284c7;" onclick="openNavigatorApp('waze')">🚗 فتح عبر Waze</button>
-          <button class="btn-submit" style="margin-top: 10px; background: transparent; color: var(--text-muted);" onclick="closeNavModal()">إلغاء</button>
+          <h3 style="color: var(--primary); margin-bottom: 6px; font-size: 15px;" id="navModalTitle">🧭 توجيه الموصل</h3>
+          <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 15px;" id="navModalSub">اختر الوجهة والتطبيق المناسب للانتقال المباشر:</p>
+          <button class="btn-submit" style="margin-bottom: 8px; background: #3b82f6;" onclick="openNavigatorApp('google', 'pickup')">📍 جوجل مابس: الذهاب للاستلام</button>
+          <button class="btn-submit" style="margin-bottom: 12px; background: #ef4444;" onclick="openNavigatorApp('google', 'dropoff')">🎯 جوجل مابس: الذهاب للتسليم</button>
+          <button class="btn-submit" style="margin-bottom: 8px; background: #0284c7;" onclick="openNavigatorApp('waze', 'pickup')">🚗 وايز: الذهاب للاستلام</button>
+          <button class="btn-submit" style="margin-bottom: 12px; background: #f59e0b;" onclick="openNavigatorApp('waze', 'dropoff')">🏁 وايز: الذهاب للتسليم</button>
+          <button class="btn-submit" style="background: transparent; color: var(--text-muted);" onclick="closeNavModal()">إلغاء</button>
         </div>
       </div>
 
@@ -690,7 +693,7 @@ def serve_frontend():
       let userCurrentLat = 33.5731, userCurrentLng = -7.5898;
       let deliveryLat = null, deliveryLng = null;
       let map = null, deliveryMarker = null, trackingMap = null, trackingMarker = null;
-      let driverActiveMap = null, driverMarker = null, targetNavLat = null, targetNavLng = null, currentActiveOrder = null;
+      let driverActiveMap = null, driverMarker = null, currentActiveOrder = null;
       let currentAuthMode = 'login', selectedRechargeMethod = 'cih_transfer', wakeLockInstance = null;
       let radarOrdersCache = [], radarInterval = null, clientTrackingInterval = null, driverLocationUpdateInterval = null;
 
@@ -915,8 +918,8 @@ def serve_frontend():
         const detailsContainer = document.getElementById("driverActiveOrderDetails");
         const pLat = order.pickup_lat || userCurrentLat, pLng = order.pickup_lng || userCurrentLng;
         const dLat = order.dropoff_lat || userCurrentLat, dLng = order.dropoff_lng || userCurrentLng;
-        targetNavLat = (order.status === 'assigned') ? pLat : dLat;
-        targetNavLng = (order.status === 'assigned') ? pLng : dLng;
+        const targetNavLat = (order.status === 'assigned') ? pLat : dLat;
+        const targetNavLng = (order.status === 'assigned') ? pLng : dLng;
 
         let btnHtml = (order.status === 'assigned') ? 
           `<button class="btn-indrive-action" onclick="updateOrderStatus('${order.id}', 'picked_up')">📍 تأكيد الوصول والاستلام</button>` :
@@ -951,9 +954,30 @@ def serve_frontend():
 
       function openNavSelectionModal() { document.getElementById("navModalOverlay").style.display = "flex"; }
       function closeNavModal(e) { if (!e || e.target.id === 'navModalOverlay' || e.target.tagName === 'BUTTON') document.getElementById("navModalOverlay").style.display = "none"; }
-      function openNavigatorApp(type) {
+      
+      // دالة فتح التطبيق الخارجي بالإحداثيات المضبوطة بالكامل لكل من الاستلام والتسليم
+      function openNavigatorApp(type, destinationType) {
         closeNavModal();
-        window.open(type === 'waze' ? `https://waze.com/ul?ll=${targetNavLat},${targetNavLng}&navigate=yes` : `https://www.google.com/maps/dir/?api=1&destination=${targetNavLat},${targetNavLng}&travelmode=driving`, '_blank');
+        if (!currentActiveOrder) {
+          showAppToast("تنبيه", "لا يوجد طلب نشط حالياً.");
+          return;
+        }
+        
+        let destLat = destinationType === 'pickup' ? currentActiveOrder.pickup_lat : currentActiveOrder.dropoff_lat;
+        let destLng = destinationType === 'pickup' ? currentActiveOrder.pickup_lng : currentActiveOrder.dropoff_lng;
+        
+        if (!destLat || !destLng) {
+          showAppToast("تنبيه", "إحداثيات الوجهة غير متوفرة لهذا الطلب.");
+          return;
+        }
+
+        let url = '';
+        if (type === 'waze') {
+          url = `https://waze.com/ul?ll=${destLat},${destLng}&navigate=yes`;
+        } else {
+          url = `https://www.google.com/maps/dir/?api=1&destination=${destLat},${destLng}&travelmode=driving`;
+        }
+        window.open(url, '_blank');
       }
 
       async function updateOrderStatus(orderId, newStatus) {
@@ -1109,10 +1133,8 @@ def serve_frontend():
           return;
         }
 
-        // تكبير افتراضي أعلى (16) لرؤية الشوارع والأزقة بوضوح أكبر
         map = L.map('map').setView([userCurrentLat, userCurrentLng], 16);
         
-        // استخدام طبقة شوارع فائقة الوضوح والدقة (Esri World Street Map)
         L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
           maxZoom: 19,
           attribution: 'Tiles &copy; Esri &mdash; Source: Esri, DeLorme, NAVTEQ, USGS, Intermap, iPC, NRCAN, and the GIS User Community'
