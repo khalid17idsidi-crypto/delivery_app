@@ -259,10 +259,11 @@ def serve_frontend():
         --text-main: #f8fafc; --text-muted: #94a3b8; --border: rgba(255, 255, 255, 0.1);
         --danger: #ef4444; --warning: #f59e0b; --accent-green: #a3e635;
       }
-      * { box-sizing: border-box; margin: 0; padding: 0; font-family: "Tajawal", sans-serif; }
+      * { box-sizing: border-box; margin: 0; padding: 0; font-family: "Tajawal", sans-serif; text-rendering: optimizeLegibility; }
       body {
         background: var(--bg-dark); color: var(--text-main); display: flex;
         justify-content: center; min-height: 100vh; overflow-y: auto; -webkit-tap-highlight-color: transparent;
+        direction: rtl; text-align: right;
       }
       .app-container {
         width: 100%; max-width: 480px; min-height: 100vh; background: var(--bg-dark);
@@ -317,7 +318,7 @@ def serve_frontend():
       .drawer-menu { padding: 12px; display: flex; flex-direction: column; gap: 6px; flex: 1; overflow-y: auto; }
       .drawer-item {
         display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px;
-        color: var(--text-main); font-size: 13px; font-weight: 700; cursor: pointer; border: none; background: transparent; width: 100%; text-align: inherit;
+        color: var(--text-main); font-size: 13px; font-weight: 700; cursor: pointer; border: none; background: transparent; width: 100%; text-align: right;
       }
       .drawer-item:hover, .drawer-item.active { background: rgba(16, 185, 129, 0.15); color: var(--primary); }
       .drawer-item.logout { color: var(--danger); margin-top: auto; border-top: 1px solid var(--border); }
@@ -327,7 +328,7 @@ def serve_frontend():
       .content-area { flex: 1; position: relative; width: 100%; padding: 16px; }
       .view-panel { display: none; flex-direction: column; width: 100%; }
       .view-panel.active { display: flex; }
-      .section-header { font-size: 14px; font-weight: 800; color: var(--primary); margin: 10px 0 8px; }
+      .section-header { font-size: 14px; font-weight: 800; color: var(--primary); margin: 10px 0 8px; text-align: right; }
       .services-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 14px; }
       .service-card {
         background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border); border-radius: 16px;
@@ -368,28 +369,31 @@ def serve_frontend():
         border: 2px solid var(--warning); color: var(--warning); width: 45px; height: 45px; border-radius: 50%;
         font-size: 20px; display: flex; align-items: center; justify-content: center; cursor: pointer;
       }
-      .mapboxgl-ctrl-geocoder { max-width: 100% !important; width: 100% !important; background: var(--card-bg) !important; color: var(--text-main) !important; border-radius: 10px !important; border: 1px solid var(--primary) !important; box-shadow: none !important; font-family: "Tajawal", sans-serif !important; margin-bottom: 10px !important; }
-      .mapboxgl-ctrl-geocoder input { color: var(--text-main) !important; font-family: "Tajawal", sans-serif !important; padding: 10px 35px !important; }
-      .mapboxgl-ctrl-geocoder .mapboxgl-ctrl-geocoder--icon { fill: var(--primary) !important; }
-      .mapboxgl-ctrl-geocoder .suggestions { background: var(--card-bg) !important; border: 1px solid var(--border) !important; }
-      .mapboxgl-ctrl-geocoder .suggestions > li > a { color: var(--text-main) !important; }
-      .mapboxgl-ctrl-geocoder .suggestions > li > a:hover { background: rgba(16, 185, 129, 0.2) !important; }
+      /* إصلاح وتنسيق شريط البحث Mapbox Geocoder باللغة العربية ودعم ربط الحروف */
+      .mapboxgl-ctrl-geocoder { max-width: 100% !important; width: 100% !important; background: var(--card-bg) !important; color: var(--text-main) !important; border-radius: 10px !important; border: 1px solid var(--primary) !important; box-shadow: none !important; font-family: "Tajawal", sans-serif !important; margin-bottom: 10px !important; direction: rtl !important; text-align: right !important; }
+      .mapboxgl-ctrl-geocoder input { color: var(--text-main) !important; font-family: "Tajawal", sans-serif !important; padding: 10px 40px 10px 15px !important; direction: rtl !important; text-align: right !important; }
+      .mapboxgl-ctrl-geocoder .mapboxgl-ctrl-geocoder--icon { right: 12px !important; left: auto !important; fill: var(--primary) !important; }
+      .mapboxgl-ctrl-geocoder .mapboxgl-ctrl-geocoder--icon-search { top: 12px !important; }
+      .mapboxgl-ctrl-geocoder .mapboxgl-ctrl-geocoder--pin-right { right: auto !important; left: 10px !important; }
+      .mapboxgl-ctrl-geocoder .suggestions { background: var(--card-bg) !important; border: 1px solid var(--border) !important; direction: rtl !important; text-align: right !important; }
+      .mapboxgl-ctrl-geocoder .suggestions > li > a { color: var(--text-main) !important; font-family: "Tajawal", sans-serif !important; direction: rtl !important; text-align: right !important; }
+      .mapboxgl-ctrl-geocoder .suggestions > li > a:hover { background: rgba(16, 185, 129, 0.2) !important; color: var(--primary) !important; }
 
-      .field-group { margin-bottom: 12px; text-align: inherit; position: relative; }
+      .field-group { margin-bottom: 12px; text-align: right; position: relative; }
       .field-group label { display: block; font-size: 11px; color: var(--text-muted); margin-bottom: 6px; }
       .field-group label span.required { color: var(--danger); font-weight: bold; }
       .field-group input, .field-group select, .field-group textarea {
         width: 100%; padding: 12px; border-radius: 10px; border: 1px solid var(--border);
-        background: var(--card-bg); color: var(--text-main); font-size: 12px; outline: none; text-align: inherit;
+        background: var(--card-bg); color: var(--text-main); font-size: 12px; outline: none; text-align: right; direction: rtl; font-family: "Tajawal", sans-serif;
       }
       .pin-instruction-box { background: rgba(16, 185, 129, 0.12); border: 1px solid var(--primary); border-radius: 12px; padding: 12px; margin-bottom: 10px; font-size: 12px; color: var(--text-main); text-align: center; line-height: 1.5; }
       .custom-toast-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.7); z-index: 999999; justify-content: center; align-items: center; padding: 20px; }
       .custom-toast-card { background: var(--card-bg); border: 1px solid var(--primary); border-radius: 16px; width: 100%; max-width: 320px; padding: 20px; text-align: center; }
-      .indrive-order-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 16px; padding: 16px; margin-bottom: 14px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+      .indrive-order-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 16px; padding: 16px; margin-bottom: 14px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); text-align: right; }
       .card-top-info { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
       .price-badge-indrive { background: rgba(16, 185, 129, 0.15); color: var(--primary); font-size: 15px; font-weight: 900; padding: 4px 12px; border-radius: 10px; }
       .distance-tag { font-size: 11px; font-weight: bold; color: var(--warning); background: rgba(245, 158, 11, 0.1); padding: 4px 10px; border-radius: 8px; }
-      .location-row { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 8px; font-size: 12px; line-height: 1.5; color: var(--text-main); }
+      .location-row { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 8px; font-size: 12px; line-height: 1.5; color: var(--text-main); text-align: right; }
       .dot-point { width: 10px; height: 10px; border-radius: 50%; margin-top: 5px; flex-shrink: 0; }
       .dot-point.pickup { background: #3b82f6; box-shadow: 0 0 6px #3b82f6; }
       .dot-point.delivery { background: var(--danger); box-shadow: 0 0 6px var(--danger); }
@@ -686,12 +690,12 @@ def serve_frontend():
       const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNhdXVqcm54dHFzd2p6cWhwaHlxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4ODM0MTA0MywiZXhwIjoyMTAzOTE3MDQzfQ.17AG1uMHj14ZNVuzp56-9_Z2KYeG50Oo3k__kDbhUok";
       const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-      // مفتاح Mapbox الشخصي الخاص بك المعتمد الآن رسمياً
+      // مفتاح Mapbox الشخصي المعتمد
       mapboxgl.accessToken = 'pk.eyJ1IjoiaWRzaWRpIiwiYSI6ImNtdTJscHkybjAwbW8yeXF1cXFhdXozaWMifQ.FDKkwkz9kdug1cghlLNChw';
 
       let currentUserId = localStorage.getItem("app_user_id") || null;
       let currentUserName = localStorage.getItem("app_user_name") || "";
-      let currentRole = localStorage.getItem("app_user_role") || "";
+      let currentRole = localStorage.getItem("app_user_role"] || "";
       let currentUserPhone = localStorage.getItem("app_user_phone") || "";
 
       let userCurrentLat = 33.5731, userCurrentLng = -7.5898;
