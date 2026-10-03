@@ -18,16 +18,36 @@
 <!-- استدعاء مكتبة Mapbox JS -->
 <script src="https://api.mapbox.com/mapbox-gl-js/v3.12.0/mapbox-gl.js"></script>
 <script>
-    // استخدام المفتاح الخاص بك بشكل مباشر وصحيح
+    // المفتاح الحقيقي الخاص بك
     mapboxgl.accessToken = 'pk.eyJ1IjoiaWRzaWRpIiwiYSI6ImNtdTJscHkybjAwbW8yeXF1cXFhdXozaWMifQ.FDKkwkz9kdug1cghlLNChw';
 
     const map = new mapboxgl.Map({
         container: 'map',
-        // استخدام نمط الشوارع المدعوم رسمياً من Mapbox والمبني على بيانات OpenStreetMap الحقيقية
-        style: 'mapbox://styles/mapbox/streets-v12', 
+        // استخدام نمط الراستر النقي المستمد مباشرة من بيانات OpenStreetMap بدون أي Vector معقد يسبب Crash
+        style: {
+            'version': 8,
+            'sources': {
+                'raster-tiles': {
+                    'type': 'raster',
+                    'tiles': [
+                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
+                    ],
+                    'tileSize': 256,
+                    'attribution': '&copy; OpenStreetMap Contributors'
+                }
+            },
+            'layers': [
+                {
+                    'id': 'simple-tile-layer',
+                    'type': 'raster',
+                    'source': 'raster-tiles',
+                    'minzoom': 0,
+                    'maxzoom': 19
+                }
+            ]
+        },
         center: [-7.589843, 33.573110], // مركز الدار البيضاء الكبرى
-        zoom: 13, // زووم واضح للشوارع والزنقي
-        maxZoom: 19
+        zoom: 13
     });
 
     // إضافة أزرار التحكم في التكبير والتصغير
