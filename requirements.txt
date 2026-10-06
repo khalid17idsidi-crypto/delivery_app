@@ -1,5 +1,8 @@
 fastapi
 uvicorn
-pydantic
+httpx
 requests
+pydantic
 supabase
+jinja2
+python-multipart
