@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>تطبيق التوصيل السريع</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 font-sans p-4 md:p-8">
+  <div class="max-w-xl mx-auto bg-white p-6 rounded-2xl shadow-md border border-gray-200">
+    <h1 class="text-2xl font-bold text-center text-blue-600 mb-6">📦 إنشاء طلبية توصيل جديدة</h1>
+    
+    <form id="orderForm" class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700">اسم الزبون</label>
+        <input type="text" id="customer_name" required class="w-full mt-1 p-2 border rounded-lg focus:ring focus:ring-blue-200">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700">رقم الهاتف</label>
+        <input type="tel" id="customer_phone" required class="w-full mt-1 p-2 border rounded-lg focus:ring focus:ring-blue-200">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700">عنوان الاستلام</label>
+        <input type="text" id="pickup_address" required class="w-full mt-1 p-2 border rounded-lg focus:ring focus:ring-blue-200">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700">عنوان التوصيل</label>
+        <input type="text" id="delivery_address" required class="w-full mt-1 p-2 border rounded-lg focus:ring focus:ring-blue-200">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700">المبلغ المطلوب تحصيله (درهم)</label>
+        <input type="number" id="price" required class="w-full mt-1 p-2 border rounded-lg focus:ring focus:ring-blue-200">
+      </div>
+      <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-lg transition duration-200">
+        إرسال الطلب
+      </button>
+    </form>
+
+    <div id="statusMessage" class="mt-4 text-center text-sm font-semibold hidden"></div>
+  </div>
+
+  <script>
+    const form = document.getElementById('orderForm');
+    const msg = document.getElementById('statusMessage');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      msg.className = "mt-4 text-center text-sm font-semibold text-gray-500 block";
+      msg.innerText = "جاري إرسال الطلب...";
+
+      const data = {
+        customer_name: document.getElementById('customer_name').value,
+        customer_phone: document.getElementById('customer_phone').value,
+        pickup_address: document.getElementById('pickup_address').value,
+        delivery_address: document.getElementById('delivery_address').value,
+        price: parseFloat(document.getElementById('price').value)
+      };
+
+      try {
+        const response = await fetch('/orders', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(data)
+        });
+
+        if (response.ok) {
+          msg.className = "mt-4 text-center text-sm font-semibold text-green-600 block";
+          msg.innerText = "✅ تم تسجيل الطلبية بنجاح!";
+          form.reset();
+        } else {
+          msg.className = "mt-4 text-center text-sm font-semibold text-red-600 block";
+          msg.innerText = "❌ حدث خطأ أثناء إرسال الطلب.";
+        }
+      } catch (err) {
+        msg.className = "mt-4 text-center text-sm font-semibold text-red-600 block";
+        msg.innerText = "❌ تعذر الاتصال بالسيرفر.";
+      }
+    });
+  </script>
+</body>
+</html>
