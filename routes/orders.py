@@ -1,13 +1,12 @@
 from fastapi import APIRouter, HTTPException
 import httpx
-import requests
 from database import supabase
 from models import OrderRequest, AcceptOrderRequest, DriverLocationUpdate, RouteRequest
-from services import get_address_from_coords, get_coords_from_address
+from services import get_address_from_coords
 
 router = APIRouter(tags=["Orders"])
 
-@app_route := router.post("/api/get-live-route")
+@router.post("/api/get-live-route")
 async def get_live_route(data: RouteRequest):
     url = f"http://router.project-osrm.org/route/v1/driving/{data.start_lng},{data.start_lat};{data.end_lng},{data.end_lat}?overview=full&geometries=geojson"
     try:
@@ -39,9 +38,6 @@ def create_order(order: OrderRequest):
     final_lng = order.dropoff_lng or order.pickup_lng
     dropoff_address = get_address_from_coords(final_lat, final_lng)
     
-    distance_km = 3.0
-    price_mad = 25.0
-
     order_dict = {
         "customer_id": order.user_id,
         "customer_name": order.customer_name,
@@ -56,8 +52,8 @@ def create_order(order: OrderRequest):
         "pickup_lng": order.pickup_lng,
         "dropoff_lat": final_lat,
         "dropoff_lng": final_lng,
-        "distance_km": distance_km,
-        "price_mad": price_mad,
+        "distance_km": 3.0,
+        "price_mad": 25.0,
         "status": "pending"
     }
     res = supabase.table("orders").insert(order_dict).execute()
