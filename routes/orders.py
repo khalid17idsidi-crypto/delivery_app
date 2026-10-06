@@ -1,3 +1,9 @@
+import sys
+from pathlib import Path
+
+# ضمان قراءة الملفات من المجلد الرئيسي للمشروع
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+
 from fastapi import APIRouter, HTTPException
 import httpx
 from database import supabase
