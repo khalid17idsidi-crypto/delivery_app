@@ -1,15 +1,14 @@
 import os
 import sys
+from typing import Optional
 
-# ضمان قراءة مسار المجلد الحالي مباشرة
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-if BASE_DIR not in sys.path:
-    sys.path.insert(0, BASE_DIR)
-
-from fastapi import FastAPI
+import httpx
+import requests
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
-from routes import router as api_router
+from pydantic import BaseModel
+from supabase import create_client, Client
 
 app = FastAPI(title="Delivery Tracking & Routing API - FastAPI Backend")
 
@@ -21,8 +20,275 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# تضمين كافة مسارات الـ API المقسمة
-app.include_router(api_router)
+SUPABASE_URL = "https://cauujrnxtqswjzqhphyq.supabase.co"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNhdXVqcm54dHFzd2p6cWhwaHlxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4ODM0MTA0MywiZXhwIjoyMTAzOTE3MDQzfQ.17AG1uMHj14ZNVuzp56-9_Z2KYeG50Oo3k__kDbhUok"
+
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+class OrderRequest(BaseModel):
+    pickup_lat: float
+    pickup_lng: float
+    dropoff_lat: Optional[float] = None
+    dropoff_lng: Optional[float] = None
+    dropoff_address_text: Optional[str] = ""
+    user_id: Optional[str] = "user_123"
+    customer_name: Optional[str] = "أمين"
+    customer_phone: Optional[str] = "0600000000"
+    recipient_phone: str
+    recipient_phone_secondary: str
+    package_type: Optional[str] = "طرد"
+    notes: Optional[str] = ""
+    security_accepted: bool = False
+
+class AcceptOrderRequest(BaseModel):
+    order_id: str
+    driver_id: Optional[str] = None
+    courier_id: Optional[str] = None
+
+class DriverLocationUpdate(BaseModel):
+    order_id: str
+    driver_id: str
+    lat: float
+    lng: float
+
+class RouteRequest(BaseModel):
+    start_lng: float
+    start_lat: float
+    end_lng: float
+    end_lat: float
+
+class WalletTopupRequest(BaseModel):
+    user_id: str
+    amount: float
+    receipt_url: str = "https://via.placeholder.com/150"
+
+def get_address_from_coords(lat, lng):
+    try:
+        url = f"https://nominatim.openstreetmap.org/reverse?lat={lat}&lon={lng}&format=json"
+        headers = {'User-Agent': 'DeliveryApp/1.0'}
+        res = requests.get(url, headers=headers, timeout=3).json()
+        return res.get('display_name', f"{lat}, {lng}")
+    except Exception:
+        return f"{lat}, {lng}"
+
+def get_coords_from_address(address_text):
+    try:
+        if "الدار البيضاء" in address_text:
+            query = address_text
+        else:
+            query = address_text + ", الدار البيضاء, المغرب"
+        url = "https://nominatim.openstreetmap.org/search?q=" + requests.utils.quote(query) + "&format=json&limit=1"
+        headers = {'User-Agent': 'DeliveryApp/1.0'}
+        res = requests.get(url, headers=headers, timeout=3).json()
+        if res and len(res) > 0:
+            return float(res[0]['lat']), float(res[0]['lon'])
+    except Exception as e:
+        print("Geocoding error in backend:", e)
+    return None, None
+
+@app.post("/api/get-live-route")
+async def get_live_route(data: RouteRequest):
+    url = f"http://router.project-osrm.org/route/v1/driving/{data.start_lng},{data.start_lat};{data.end_lng},{data.end_lat}?overview=full&geometries=geojson"
+    try:
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            response = await client.get(url)
+            if response.status_code != 200:
+                raise HTTPException(status_code=400, detail="فشل في حساب المسار الجغرافي")
+            
+            route_data = response.json()
+            if not route_data.get("routes"):
+                raise HTTPException(status_code=404, detail="لا يوجد مسار متاح بين النقطتين")
+            
+            routejson = route_data["routes"][0]["geometry"]
+            distance = route_data["routes"][0]["distance"] / 1000.0
+            duration = route_data["routes"][0]["duration"] / 60.0
+
+            return {
+                "status": "success",
+                "distance_km": round(distance, 2),
+                "duration_mins": round(duration, 1),
+                "route_geometry": routejson
+            }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/create-order")
+def create_order(order: OrderRequest):
+    try:
+        if not order.security_accepted:
+            raise HTTPException(status_code=400, detail="الموافقة على الشروط الأمنية وحق التبليغ للشرطة إلزامية لإنشاء الطلب")
+        if not order.recipient_phone or not order.recipient_phone_secondary:
+            raise HTTPException(status_code=400, detail="رقم هاتف المستلم الأول ورقم هاتف المستلم الثاني إلزاميان معاً لتأمين التسليم")
+        if not order.pickup_lat or not order.pickup_lng:
+            raise HTTPException(status_code=400, detail="موقع الاستلام عبر GPS غير متوفر")
+            
+        pickup_address = get_address_from_coords(order.pickup_lat, order.pickup_lng)
+        
+        final_dropoff_lat = order.dropoff_lat
+        final_dropoff_lng = order.dropoff_lng
+        dropoff_address = ""
+
+        if not final_dropoff_lat or not final_dropoff_lng:
+            if order.dropoff_address_text:
+                lat, lng = get_coords_from_address(order.dropoff_address_text)
+                if lat and lng:
+                    final_dropoff_lat = lat
+                    final_dropoff_lng = lng
+                    dropoff_address = order.dropoff_address_text
+                else:
+                    raise HTTPException(status_code=400, detail="يرجى تحديد وجهة التسليم بدقة على الخريطة أو كتابة عنوان صحيح")
+            else:
+                raise HTTPException(status_code=400, detail="الرجاء تحديد نقطة التسليم على الخريطة أولاً")
+        else:
+            dropoff_address = get_address_from_coords(final_dropoff_lat, final_dropoff_lng)
+
+        osrm_url = f"http://router.project-osrm.org/route/v1/driving/{order.pickup_lng},{order.pickup_lat};{final_dropoff_lng},{final_dropoff_lat}?overview=full&geometries=geojson"
+        
+        distance_km = 2.0
+        route_geometry = {
+            "type": "LineString",
+            "coordinates": [
+                [order.pickup_lng, order.pickup_lat],
+                [final_dropoff_lng, final_dropoff_lat]
+            ]
+        }
+
+        try:
+            response = requests.get(osrm_url, timeout=5)
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("routes"):
+                    distance_meters = data['routes'][0]['distance']
+                    distance_km = round(distance_meters / 1000.0, 2)
+                    route_geometry = data['routes'][0]['geometry']
+        except Exception:
+            pass
+        
+        if distance_km < 3.0:
+            total_price = 20.0
+        elif 3.0 <= distance_km <= 9.0:
+            total_price = 25.0
+        elif 9.0 < distance_km <= 12.0:
+            total_price = 30.0
+        else:
+            total_price = 30.0 + ((distance_km - 12.0) * 2.5)
+            
+        total_price = round(total_price, 2)
+        
+        order_data = {
+            "customer_id": order.user_id,
+            "customer_name": order.customer_name,
+            "customer_phone": order.customer_phone,
+            "recipient_phone": order.recipient_phone,
+            "recipient_phone_secondary": order.recipient_phone_secondary,
+            "package_type": order.package_type,
+            "notes": order.notes,
+            "pickup_address": pickup_address,
+            "dropoff_address": dropoff_address,
+            "pickup_lat": order.pickup_lat,
+            "pickup_lng": order.pickup_lng,
+            "dropoff_lat": final_dropoff_lat,
+            "dropoff_lng": final_dropoff_lng,
+            "distance_km": distance_km,
+            "price_mad": total_price,
+            "status": "pending",
+            "route_path": route_geometry
+        }
+        
+        db_response = supabase.table("orders").insert(order_data).execute()
+        
+        return {
+            "status": "success",
+            "message": "تم حساب المسار وتخزين الطلب بنجاح",
+            "data": {
+                "distance_km": distance_km,
+                "price_mad": total_price,
+                "pickup_address": pickup_address,
+                "dropoff_address": dropoff_address,
+                "route_path": route_geometry,
+                "order_details": db_response.data
+            }
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print("CRITICAL ERROR IN CREATE ORDER:", str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/accept-order")
+def accept_order(data: AcceptOrderRequest):
+    try:
+        the_driver_id = data.driver_id or data.courier_id
+        if not the_driver_id:
+            raise HTTPException(status_code=400, detail="معرف الموصل مفقود")
+
+        db_response = supabase.table("orders").update({
+            "status": "assigned",
+            "driver_id": the_driver_id
+        }).eq("id", data.order_id).execute()
+        
+        return {
+            "status": "success",
+            "message": "تم قبول الطلب بنجاح",
+            "data": db_response.data
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print("CRITICAL ERROR IN ACCEPT ORDER:", str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/update-driver-location")
+def update_driver_location(data: DriverLocationUpdate):
+    try:
+        db_response = supabase.table("orders").update({
+            "driver_lat": data.lat,
+            "driver_lng": data.lng
+        }).eq("id", data.order_id).execute()
+        
+        return {
+            "status": "success",
+            "message": "تم تحديث موقع الموصل بنجاح",
+            "data": db_response.data
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print("CRITICAL ERROR IN UPDATE DRIVER LOCATION:", str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/wallet/topup")
+async def wallet_topup(data: WalletTopupRequest):
+    try:
+        if data.amount < 30:
+            raise HTTPException(status_code=400, detail="الحد الأدنى للشحن عبر التحويل البنكي CIH هو 30 درهم")
+            
+        bonus = 0.0
+        if data.amount >= 100:
+            bonus = 10.0
+        elif data.amount >= 50:
+            bonus = 4.0
+            
+        total_credited = data.amount + bonus
+        
+        topup_data = {
+            "driver_id": data.user_id,
+            "amount": data.amount,
+            "bonus": bonus,
+            "total_credited": total_credited,
+            "receipt_url": data.receipt_url,
+            "status": "pending"
+        }
+        
+        db_res = supabase.table("wallet_topups").insert(topup_data).execute()
+        
+        return {"status": "success", "message": "تم إرسال طلب الشحن بنجاح في انتظار مراجعة الأدمن", "data": db_res.data}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 # ==========================================
 # 1. واجهة تطبيق التوصيل الأساسية ( / )
@@ -80,7 +346,7 @@ def serve_frontend():
       @keyframes pulse {
         0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
         70% { transform: scale(1.05); box-shadow: 0 0 0 15px rgba(16, 185, 129, 0); }
-        100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+        100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
       }
       .location-overlay h2 { font-size: 18px; font-weight: 800; color: var(--primary); margin-bottom: 10px; }
       .location-overlay p { font-size: 12px; color: var(--text-muted); line-height: 1.6; margin-bottom: 25px; }
@@ -1541,277 +1807,4 @@ def serve_admin_dashboard():
         </div>
 
         <div class="admin-section" id="usersSection">
-            <h2>👥 إدارة الحسابات (تفعيل / حظر)</h2>
-            <table>
-                <thead>
-                    <tr><th>الاسم</th><th>الهاتف</th><th>النوع</th><th>الحالة</th><th>الإجراء</th></tr>
-                </thead>
-                <tbody id="allUsersTable"><tr><td colspan="5">جاري تحميل المستخدمين...</td></tr></tbody>
-            </table>
-        </div>
-    </main>
-
-    <script>
-        const SUPABASE_URL = "https://cauujrnxtqswjzqhphyq.supabase.co";
-        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNhdXVqcm54dHFzd2p6cWhwaHlxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzNDEwNDMsImV4cCI6MjEwMzkxNzA0M30.xIwYyOcOaH-3VEkfuf2T73tHMRn3oAL2_RjNNPueQKU";
-        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-        let adminMap = null;
-        let driverMarkers = {};
-
-        document.addEventListener("DOMContentLoaded", () => {
-            trackDailyVisitor();
-            initAdminMap();
-            loadDashboardStats();
-            loadAdminWalletQueue();
-            loadQualifiedWinners();
-            loadAdminOrdersMonitor();
-            loadPendingDrivers();
-            loadAllUsers();
-            loadDynamicPricingSettings();
-            listenRealtimeUpdates();
-        });
-
-        async function trackDailyVisitor() {
-            try {
-                const todayStr = new Date().toISOString().split('T')[0];
-                const visitorKey = `admin_visitor_tracked_${todayStr}`;
-                if (!localStorage.getItem(visitorKey)) {
-                    localStorage.setItem(visitorKey, 'true');
-                    let { data } = await supabaseClient.from('app_settings').select('setting_value').eq('setting_key', `daily_visitors_${todayStr}`).single();
-                    let currentCount = data ? parseInt(data.setting_value || 0) : 0;
-                    currentCount++;
-                    await supabaseClient.from('app_settings').upsert({ setting_key: `daily_visitors_${todayStr}`, setting_value: currentCount.toString() });
-                }
-            } catch (e) {}
-        }
-
-        function switchAdminTab(sectionId, btnElement) {
-            document.querySelectorAll('.admin-section').forEach(sec => sec.classList.remove('active'));
-            document.querySelectorAll('.sidebar-menu button').forEach(btn => btn.classList.remove('active'));
-
-            document.getElementById(sectionId).classList.add('active');
-            btnElement.classList.add('active');
-
-            if (sectionId === 'mapSection' && adminMap) {
-                setTimeout(() => { adminMap.invalidateSize(); }, 200);
-            }
-            if (sectionId === 'walletAdminSection') {
-                loadAdminWalletQueue();
-            }
-        }
-
-        async function loadAdminWalletQueue() {
-            const container = document.getElementById("adminTopupsContainer");
-            if (!container) return;
-            try {
-                const { data: topups, error } = await supabaseClient
-                    .from('wallet_topups')
-                    .select(`id, amount, total_credited, receipt_url, status, created_at, profiles:driver_id ( full_name, phone_number )`)
-                    .eq('status', 'pending');
-
-                if (error) throw error;
-
-                if (!topups || topups.length === 0) {
-                    container.innerHTML = `<p style="font-size: 11px; color: var(--text-muted); text-align: center; padding: 15px;">لا توجد طلبات شحن معلقة حالياً.</p>`;
-                    return;
-                }
-
-                let html = '';
-                topups.forEach(item => {
-                    const driverName = item.profiles ? item.profiles.full_name : 'موصل مجهول';
-                    const driverPhone = item.profiles ? item.profiles.phone_number : '';
-
-                    html += `
-                        <div class="indrive-order-card" style="border: 1px solid var(--warning);">
-                            <div class="card-top-info" style="display:flex; justify-content:space-between; margin-bottom:8px;">
-                                <span style="background:rgba(16,185,129,0.15); color:var(--primary); font-weight:900; padding:4px 10px; border-radius:8px;">المجموع: ${item.total_credited} MAD</span>
-                                <span style="color:var(--warning); font-size:11px;">المبلغ الأساسي: ${item.amount} درهم</span>
-                            </div>
-                            <div style="font-size:12px; margin-bottom:8px;">👤 <b>الموصل:</b> ${driverName} (${driverPhone})</div>
-                            <div style="font-size:12px; margin-bottom:8px;">
-                                📸 <b>صورة وصل التحويل:</b><br>
-                                <a href="${item.receipt_url || '#'}" target="_blank">
-                                    <img src="${item.receipt_url || 'https://via.placeholder.com/150'}" style="width:100%; max-height:180px; object-fit:cover; border-radius:8px; margin-top:6px; border:1px solid var(--border);" />
-                                </a>
-                            </div>
-                            <button class="btn-action btn-approve" style="width:100%; padding:10px; font-weight:bold;" onclick="adminApproveTopup('${item.id}', '${item.driver_id}', ${item.total_credited})">✅ تفعيل وإضافة الرصيد للموصل</button>
-                        </div>
-                    `;
-                });
-                container.innerHTML = html;
-            } catch (e) {
-                container.innerHTML = `<p style="font-size: 11px; color: var(--danger);">خطأ في جلب طلبات الشحن.</p>`;
-            }
-        }
-
-        async function adminApproveTopup(topupId, driverId, totalCredited) {
-            try {
-                const { data: profile } = await supabaseClient.from('profiles').select('wallet_balance').eq('id', driverId).single();
-                const currentBalance = profile ? parseFloat(profile.wallet_balance || 0) : 0;
-                const newBalance = currentBalance + parseFloat(totalCredited);
-
-                const { error: updateErr } = await supabaseClient.from('profiles').update({ wallet_balance: newBalance }).eq('id', driverId);
-                if (updateErr) throw updateErr;
-
-                const { error: topupErr } = await supabaseClient.from('wallet_topups').update({ status: 'approved' }).eq('id', topupId);
-                if (topupErr) throw topupErr;
-
-                alert("✅ تم تفعيل الشحن وإضافة الرصيد لمحفظة الموصل بنجاح.");
-                loadAdminWalletQueue();
-            } catch (e) {
-                alert("خطأ: " + e.message);
-            }
-        }
-
-        async function savePromoAnnouncement() {
-            const title = document.getElementById('adminPromoTitle').value.trim();
-            const text = document.getElementById('adminPromoText').value.trim();
-            if (!title || !text) { alert("يرجى ملء عنوان ونص الإعلان."); return; }
-
-            try {
-                const { error } = await supabaseClient.from('app_settings').upsert([
-                    { setting_key: 'promo_title', setting_value: title },
-                    { setting_key: 'promo_text', setting_value: text }
-                ]);
-                if (error) throw error;
-                alert("🚀 تم تحديث الإعلان ونشره بنجاح في الصفحة الرئيسية للزبناء والزوار!");
-            } catch (err) { alert("خطأ في النشر: " + err.message); }
-        }
-
-        async function adminInvestigateComplaint() {
-            const queryText = document.getElementById('complaintSearchInput').value.trim();
-            const resultContainer = document.getElementById('complaintResultContainer');
-            if (!queryText) { alert("يرجى إدخال رقم الهاتف أو رقم الطلب للبحث."); return; }
-
-            resultContainer.innerHTML = '<p style="color:var(--text-muted); font-size:12px;">جاري فحص أرشيف السجلات والتحقيق...</p>';
-            try {
-                const { data: disputedOrders, error } = await supabaseClient
-                    .from('orders')
-                    .select('*, customer:customer_id(full_name, phone_number), driver:driver_id(full_name, phone_number)')
-                    .or(`recipient_phone.ilike.%${queryText}%,id.ilike.%${queryText}%`)
-                    .order('created_at', { ascending: false });
-
-                if (error) throw error;
-                if (!disputedOrders || disputedOrders.length === 0) {
-                    resultContainer.innerHTML = '<p style="color:var(--warning); font-size:12px;">لم يتم العثور على أي طلب مسجل بهذا المعيار في الأرشيف.</p>';
-                    return;
-                }
-
-                resultContainer.innerHTML = disputedOrders.map(ord => `
-                    <div class="winner-card" style="border-color: var(--primary); background: rgba(16, 185, 129, 0.05);">
-                        <div class="winner-info" style="width: 100%;">
-                            <h4>📦 تفاصيل الطلب: #${ord.id}</h4>
-                            <p>📌 الحالة الحالية: <strong style="color:var(--primary);">${ord.status}</strong></p>
-                            <p>🙋‍♂️ الزبون صاحب الطلب: ${ord.customer ? ord.customer.full_name : 'غير معروف'} (هاتف: ${ord.customer ? ord.customer.phone_number : '-'})</p>
-                            <p>🛵 الموصل المسؤول: ${ord.driver ? ord.driver.full_name : 'لم يتم إسناده'} (هاتف: ${ord.driver ? ord.driver.phone_number : '-'})</p>
-                            <p>📍 التسليم: ${ord.dropoff_address || 'غير محدد'} | هاتف المستلم: <strong>${ord.recipient_phone}</strong></p>
-                        </div>
-                    </div>
-                `).join('');
-            } catch (err) { resultContainer.innerHTML = `<p style="color:var(--danger); font-size:12px;">خطأ في عملية التحقيق: ${err.message}</p>`; }
-        }
-
-        function initAdminMap() {
-            adminMap = L.map('adminLiveMap').setView([33.5731, -7.5898], 12);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(adminMap);
-            loadActiveDriversOnMap();
-        }
-
-        async function loadActiveDriversOnMap() {
-            const { data: drivers } = await supabaseClient.from('profiles').select('*').eq('role', 'driver');
-            if (drivers) {
-                document.getElementById('statOnlineDrivers').innerText = drivers.length;
-                drivers.forEach(d => updateDriverMarker(d));
-            }
-        }
-
-        function updateDriverMarker(driver) {
-            if (!driver.driver_lat || !driver.driver_lng) return;
-            const lat = driver.driver_lat;
-            const lng = driver.driver_lng;
-            if (driverMarkers[driver.id]) {
-                driverMarkers[driver.id].setLatLng([lat, lng]);
-            } else {
-                driverMarkers[driver.id] = L.marker([lat, lng]).addTo(adminMap).bindPopup(`🛵 <b>${driver.full_name}</b><br>📞 ${driver.phone_number}`);
-            }
-        }
-
-        async function loadQualifiedWinners() {
-            const container = document.getElementById('winnersListContainer');
-            try {
-                const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
-                const { data: customers } = await supabaseClient.from('profiles').select('*').eq('role', 'customer');
-                if (!customers || customers.length === 0) { container.innerHTML = '<p style="color:var(--text-muted); font-size:12px;">لا يوجد زبائن مسجلين حالياً.</p>'; return; }
-
-                let winnersHTML = '';
-                let foundAny = false;
-                for (let cust of customers) {
-                    const { count, error } = await supabaseClient.from('orders').select('*', { count: 'exact', head: true }).eq('customer_id', cust.id).gte('created_at', startOfMonth);
-                    if (!error && count >= 20) {
-                        foundAny = true;
-                        winnersHTML += `
-                            <div class="winner-card">
-                                <div class="winner-info">
-                                    <h4>👤 ${cust.full_name || 'بدون اسم'}</h4>
-                                    <p>📞 رقم الهاتف: <strong>${cust.phone_number}</strong></p>
-                                    <p>📊 الطلبات الناجحة هذا الشهر: <strong style="color:var(--primary);">${count} طلبات</strong></p>
-                                    <span class="badge-prize">🎁 مؤهل لجائزة قسيمة 200 درهم</span>
-                                </div>
-                                <div><a href="tel:${cust.phone_number}" class="btn-action btn-approve">📞 اتصال بالزبون</a></div>
-                            </div>
-                        `;
-                    }
-                }
-                container.innerHTML = foundAny ? winnersHTML : '<p style="color:var(--text-muted); font-size:12px;">لم يصل أي زبون إلى 20 طلبة حتى الآن هذا الشهر.</p>';
-            } catch (e) { container.innerHTML = `<p style="color:var(--danger); font-size:12px;">خطأ: ${e.message}</p>`; }
-        }
-
-        async function loadAdminOrdersMonitor() {
-            const { data: orders } = await supabaseClient.from('orders').select('*, customer:customer_id(full_name), driver:driver_id(full_name)').order('id', { ascending: false });
-            const tbody = document.getElementById('adminOrdersTable');
-            if (!orders || orders.length === 0) { tbody.innerHTML = '<tr><td colspan="5">لا توجد طلبات مسجلة حالياً.</td></tr>'; return; }
-
-            tbody.innerHTML = orders.map(ord => {
-                let isPendingUnfinished = (ord.status === 'pending' || ord.status === 'assigned');
-                return `
-                    <tr class="${isPendingUnfinished ? 'alert-row' : ''}">
-                        <td>#${ord.id.substring(0, 6)}</td>
-                        <td>${ord.customer_name || 'زبون'}</td>
-                        <td>${ord.driver_id ? 'موصل مسند' : 'في انتظار الموصل'}</td>
-                        <td>${isPendingUnfinished ? `<span class="signal-badge">🔴 طلبية معلقة</span>` : `<span>${ord.status}</span>`}</td>
-                        <td>
-                            <button class="btn-action btn-reject" onclick="adminDeleteOrder('${ord.id}')">🗑 إزالة نهائية</button>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
-        }
-
-        async function adminDeleteOrder(orderId) {
-            if (!confirm("هل أنت متأكد من رغبتك في إزالة وإلغاء هذه الطلبية نهائياً؟")) return;
-            try {
-                await supabaseClient.from('orders').delete().eq('id', orderId);
-                alert("🗑 تم إزالة الطلبية بنجاح.");
-                loadAdminOrdersMonitor();
-                loadDashboardStats();
-            } catch (err) { alert("خطأ: " + err.message); }
-        }
-
-        async function adminDeleteAllOrders() {
-            if (!confirm("⚠️ تحذير: هل أنت متأكد من حذف جميع الطلبيات؟")) return;
-            try {
-                await supabaseClient.from('orders').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-                alert("🗑️ تم حذف جميع الطلبات بنجاح.");
-                loadAdminOrdersMonitor();
-                loadDashboardStats();
-            } catch (err) { alert("خطأ: " + err.message); }
-        }
-
-        async function loadDynamicPricingSettings() {
-            try {
-                const { data } = await supabaseClient.from('app_settings').select('setting_key, setting_value');
-                if (data) {
-                    data.forEach(item => {
-                        if (item.setting_key === 'min_fare') document.getElementById('settingMinPrice').value = item.setting_value;
-                        if (item.setting_key === '
+            <h2>
