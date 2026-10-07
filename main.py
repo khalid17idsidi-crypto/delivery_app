@@ -1807,4 +1807,153 @@ def serve_admin_dashboard():
         </div>
 
         <div class="admin-section" id="usersSection">
-            <h2>
+            <h2>👥 إدارة الحسابات (تفعيل / حظر)</h2>
+            <table>
+                <thead>
+                    <tr><th>الاسم</th><th>الهاتف</th><th>النوع</th><th>الحالة</th><th>الإجراء</th></tr>
+                </thead>
+                <tbody id="allUsersTable"><tr><td colspan="5">جاري تحميل المستخدمين...</td></tr></tbody>
+            </table>
+        </div>
+    </main>
+
+    <script>
+        const SUPABASE_URL = "https://cauujrnxtqswjzqhphyq.supabase.co";
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNhdXVqcm54dHFzd2p6cWhwaHlxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzNDEwNDMsImV4cCI6MjEwMzkxNzA0M30.xIwYyOcOaH-3VEkfuf2T73tHMRn3oAL2_RjNNPueQKU";
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        let adminMap = null;
+        let driverMarkers = {};
+
+        document.addEventListener("DOMContentLoaded", () => {
+            trackDailyVisitor();
+            initAdminMap();
+            loadDashboardStats();
+            loadAdminWalletQueue();
+            loadQualifiedWinners();
+            loadAdminOrdersMonitor();
+            loadPendingDrivers();
+            loadAllUsers();
+            loadDynamicPricingSettings();
+            listenRealtimeUpdates();
+        });
+
+        async function trackDailyVisitor() {
+            try {
+                const todayStr = new Date().toISOString().split('T')[0];
+                const visitorKey = `admin_visitor_tracked_${todayStr}`;
+                if (!localStorage.getItem(visitorKey)) {
+                    localStorage.setItem(visitorKey, 'true');
+                    let { data } = await supabaseClient.from('app_settings').select('setting_value').eq('setting_key', `daily_visitors_${todayStr}`).single();
+                    let currentCount = data ? parseInt(data.setting_value || 0) : 0;
+                    currentCount++;
+                    await supabaseClient.from('app_settings').upsert({ setting_key: `daily_visitors_${todayStr}`, setting_value: currentCount.toString() });
+                }
+            } catch (e) {}
+        }
+
+        function switchAdminTab(sectionId, btnElement) {
+            document.querySelectorAll('.admin-section').forEach(sec => sec.classList.remove('active'));
+            document.querySelectorAll('.sidebar-menu button').forEach(btn => btn.classList.remove('active'));
+
+            document.getElementById(sectionId).classList.add('active');
+            btnElement.classList.add('active');
+
+            if (sectionId === 'mapSection' && adminMap) {
+                setTimeout(() => { adminMap.invalidateSize(); }, 200);
+            }
+            if (sectionId === 'walletAdminSection') {
+                loadAdminWalletQueue();
+            }
+        }
+
+        async function loadAdminWalletQueue() {
+            const container = document.getElementById("adminTopupsContainer");
+            if (!container) return;
+            try {
+                const { data: topups, error } = await supabaseClient
+                    .from('wallet_topups')
+                    .select(`id, amount, total_credited, receipt_url, status, created_at, profiles:driver_id ( full_name, phone_number )`)
+                    .eq('status', 'pending');
+
+                if (error) throw error;
+
+                if (!topups || topups.length === 0) {
+                    container.innerHTML = `<p style="font-size: 11px; color: var(--text-muted); text-align: center; padding: 15px;">لا توجد طلبات شحن معلقة حالياً.</p>`;
+                    return;
+                }
+
+                let html = '';
+                topups.forEach(item => {
+                    const driverName = item.profiles ? item.profiles.full_name : 'موصل مجهول';
+                    const driverPhone = item.profiles ? item.profiles.phone_number : '';
+
+                    html += `
+                        <div class="indrive-order-card" style="border: 1px solid var(--warning);">
+                            <div class="card-top-info" style="display:flex; justify-content:space-between; margin-bottom:8px;">
+                                <span style="background:rgba(16,185,129,0.15); color:var(--primary); font-weight:900; padding:4px 10px; border-radius:8px;">المجموع: ${item.total_credited} MAD</span>
+                                <span style="color:var(--warning); font-size:11px;">المبلغ الأساسي: ${item.amount} درهم</span>
+                            </div>
+                            <div style="font-size:12px; margin-bottom:8px;">👤 <b>الموصل:</b> ${driverName} (${driverPhone})</div>
+                            <div style="font-size:12px; margin-bottom:8px;">
+                                📸 <b>صورة وصل التحويل:</b><br>
+                                <a href="${item.receipt_url || '#'}" target="_blank">
+                                    <img src="${item.receipt_url || 'https://via.placeholder.com/150'}" style="width:100%; max-height:180px; object-fit:cover; border-radius:8px; margin-top:6px; border:1px solid var(--border);" />
+                                </a>
+                            </div>
+                            <button class="btn-action btn-approve" style="width:100%; padding:10px; font-weight:bold;" onclick="adminApproveTopup('${item.id}', '${item.driver_id}', ${item.total_credited})">✅ تفعيل وإضافة الرصيد للموصل</button>
+                        </div>
+                    `;
+                });
+                container.innerHTML = html;
+            } catch (e) {
+                container.innerHTML = `<p style="font-size: 11px; color: var(--danger);">خطأ في جلب طلبات الشحن.</p>`;
+            }
+        }
+
+        async function adminApproveTopup(topupId, driverId, totalCredited) {
+            try {
+                const { data: profile } = await supabaseClient.from('profiles').select('wallet_balance').eq('id', driverId).single();
+                const currentBalance = profile ? parseFloat(profile.wallet_balance || 0) : 0;
+                const newBalance = currentBalance + parseFloat(totalCredited);
+
+                const { error: updateErr } = await supabaseClient.from('profiles').update({ wallet_balance: newBalance }).eq('id', driverId);
+                if (updateErr) throw updateErr;
+
+                const { error: topupErr } = await supabaseClient.from('wallet_topups').update({ status: 'approved' }).eq('id', topupId);
+                if (topupErr) throw topupErr;
+
+                alert("✅ تم تفعيل الشحن وإضافة الرصيد لمحفظة الموصل بنجاح.");
+                loadAdminWalletQueue();
+            } catch (e) {
+                alert("خطأ: " + e.message);
+            }
+        }
+
+        async function savePromoAnnouncement() {
+            const title = document.getElementById('adminPromoTitle').value.trim();
+            const text = document.getElementById('adminPromoText').value.trim();
+            if (!title || !text) { alert("يرجى ملء عنوان ونص الإعلان."); return; }
+
+            try {
+                const { error } = await supabaseClient.from('app_settings').upsert([
+                    { setting_key: 'promo_title', setting_value: title },
+                    { setting_key: 'promo_text', setting_value: text }
+                ]);
+                if (error) throw error;
+                alert("🚀 تم تحديث الإعلان ونشره بنجاح في الصفحة الرئيسية للزبناء والزوار!");
+            } catch (err) { alert("خطأ في النشر: " + err.message); }
+        }
+
+        async function adminInvestigateComplaint() {
+            const queryText = document.getElementById('complaintSearchInput').value.trim();
+            const resultContainer = document.getElementById('complaintResultContainer');
+            if (!queryText) { alert("يرجى إدخال رقم الهاتف أو رقم الطلب للبحث."); return; }
+
+            resultContainer.innerHTML = '<p style="color:var(--text-muted); font-size:12px;">جاري فحص أرشيف السجلات والتحقيق...</p>';
+            try {
+                const { data: disputedOrders, error } = await supabaseClient
+                    .from('orders')
+                    .select('*, customer:customer_id(full_name, phone_number), driver:driver_id(full_name, phone_number)')
+                    .or(`recipient_phone.ilike.%${queryText}%,id.ilike.%${queryText}%`)
+                    .order('created_at', { ascending
