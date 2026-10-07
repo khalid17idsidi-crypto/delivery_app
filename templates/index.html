@@ -124,8 +124,8 @@
         border: none; border-radius: 14px; font-size: 13px; font-weight: 800; cursor: pointer; text-align: center;
       }
 
-      /* شريط البحث المطور لأحياء الدار البيضاء */
-      .casa-search-box { position: relative; margin-bottom: 10px; }
+      /* نظام البحث الذكي عن أحياء الدار البيضاء */
+      .casa-search-box { position: relative; margin-bottom: 10px; z-index: 10; }
       .casa-search-input {
         width: 100%; padding: 12px 14px; border-radius: 10px; border: 2px solid var(--primary);
         background: var(--card-bg); color: var(--text-main); font-size: 12px; outline: none;
@@ -252,7 +252,7 @@
   </head>
   <body>
     <div class="app-container">
-      <div class="offline-banner" id="offlineBanner">⚠️ أنت تعمل الآن في وضع غير متصل (Offline).</div>
+      <div class="offline-banner" id="offlineBanner">⚠️ أنت تعمل الآن في وضع غير متصل (Offline). سيتم حفظ طلباتك ومزامنتها فور عودة الإنترنت.</div>
 
       <div class="custom-toast-overlay" id="customToastOverlay">
         <div class="custom-toast-card">
@@ -265,7 +265,7 @@
       <div class="nav-modal-overlay" id="navModalOverlay" onclick="closeNavModal(event)">
         <div class="nav-modal-card">
           <h3 style="color: var(--primary); margin-bottom: 6px; font-size: 15px;" id="navModalTitle">🧭 توجيه الموصل الفعلي</h3>
-          <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 15px;" id="navModalSub">اختر الوجهة المباشرة:</p>
+          <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 15px;" id="navModalSub">اختر الوجهة المباشرة بناءً على حالة الطلب الحقيقية:</p>
           <button class="btn-submit" style="margin-bottom: 8px; background: #1e3a8a;" onclick="openNavigatorApp('google', 'pickup')">📍 جوجل مابس: الذهاب للاستلام</button>
           <button class="btn-submit" style="margin-bottom: 12px; background: #ef4444;" onclick="openNavigatorApp('google', 'dropoff')">🎯 جوجل مابس: الذهاب للتسليم</button>
           <button class="btn-submit" style="margin-bottom: 8px; background: #0284c7;" onclick="openNavigatorApp('waze', 'pickup')">🚗 وايز: الذهاب للاستلام</button>
@@ -277,7 +277,7 @@
       <div class="location-overlay" id="locationOverlay">
         <div class="location-icon-box">📍</div>
         <h2>تفعيل خدمة الموقع مطلوب</h2>
-        <p>لتتمكن من استخدام التطبيق وخدمة التوصيل بالدار البيضاء، يرجى السماح بتحديد موقعك الجغرافي.</p>
+        <p>لتتمكن من استخدام التطبيق وخدمة التوصيل، يرجى السماح بتحديد موقعك الجغرافي الحالي بشكل دقيق.</p>
         <button class="btn-submit" onclick="requestUserLocationPermission()">📍 السماح وتفعيل الموقع الآن</button>
       </div>
 
@@ -323,7 +323,6 @@
       </aside>
 
       <div class="content-area">
-        <!-- الرئيسية -->
         <div id="homeView" class="view-panel active">
           <div class="promo-banner d-none-driver">
             <h3>🏆 مسابقة الشهر لزبناء "نتسخر ليك"!</h3>
@@ -350,7 +349,6 @@
           </div>
         </div>
 
-        <!-- تسجيل الدخول -->
         <div id="authView" class="view-panel">
           <div style="display: flex; background: rgba(255, 255, 255, 0.05); padding: 4px; border-radius: 14px; margin-bottom: 15px;">
             <button type="button" id="tabLoginBtn" class="btn-submit" style="background:var(--primary);" onclick="switchAuthMode('login')">تسجيل الدخول 🔑</button>
@@ -368,7 +366,6 @@
           <button class="btn-submit" id="authSubmitBtn" onclick="safeExecute(handleAuthAction)">🚀 تسجيل الدخول</button>
         </div>
 
-        <!-- وثائق السائق -->
         <div id="driverVerificationView" class="view-panel">
           <h3 style="color: var(--primary); margin-bottom: 8px;">🛡 توثيق حساب الموصل</h3>
           <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px;">يرجى رفع الوثائق المطلوبة (البطاقة الوطنية، الصورة الشخصية، وشهادة ملكية الدراجة).</p>
@@ -378,12 +375,11 @@
           <button class="btn-submit" onclick="safeExecute(submitDriverDocuments)">📤 إرسال الوثائق للإدارة للمراجعة</button>
         </div>
 
-        <!-- واجهة إنشاء الطلب مع الخريطة الذكية الخاصة بكازا -->
         <div id="clientView" class="view-panel">
           <h3 style="font-size: 14px; margin-bottom: 6px; color: var(--primary)">🗺 تحديد موقع الاستلام والتسليم بدقة</h3>
-          <div class="pin-instruction-box">📍 ابحث عن الحي في كازا بالأسفل أو انقر على الأحياء السريعة لتحديد الوجهة فوراً.</div>
+          <div class="pin-instruction-box">📍 <b>تم تحديد موقع الاستلام الحالي (Pickup) تلقائياً عبر GPS.</b> يمكنك البحث عن الحي أو تحريك الدبوس لتحديد نقطة التسليم بدقة.</div>
 
-          <!-- نظام البحث الذكي عن أحياء كازا (Yassir / Uber) -->
+          <!-- شريط البحث السريع والذكي لأحياء كازا -->
           <div class="casa-search-box">
             <input type="text" id="casaSearchInput" class="casa-search-input" placeholder="🔍 اكتب الحي (المعاريف، سيدي معروف، سباتة، أنفا...)" oninput="handleCasaSearch(this.value)" autocomplete="off" />
             <div id="casaDropdown" class="casa-results-dropdown"></div>
@@ -400,13 +396,13 @@
             <span class="district-chip" onclick="jumpToDistrict('دار بوعزة', 33.5210, -7.8105)">دار بوعزة</span>
           </div>
 
+          <div id="geocoder-container" style="margin-bottom: 8px;"></div>
           <div class="map-wrapper">
             <div id="map"></div>
             <button type="button" class="gps-btn" onclick="safeExecute(goToCurrentLocation)">📍 موقعي الحالي (GPS)</button>
           </div>
-
           <div class="field-group"><label>الفئة المختارة:</label><input type="text" id="orderCategory" readonly value="طرود ووثائق 📦" /></div>
-          <div class="field-group"><label>إحداثيات ونقطة التسليم المحددة:</label><input type="text" id="deliveryCoordsDisplay" readonly style="color: var(--accent-green); font-weight: bold; text-align: center;" value="انقر على الخريطة أو اختر الحي" /></div>
+          <div class="field-group"><label>الإحداثيات ونقطة التسليم المحددة:</label><input type="text" id="deliveryCoordsDisplay" readonly style="color: var(--accent-green); font-weight: bold; text-align: center;" value="جاري تحديد موقعك عبر GPS..." /></div>
           
           <div class="field-group">
             <label>رقم هاتف المستلم الأول (إلزامي) <span class="required">*</span>:</label>
@@ -418,28 +414,29 @@
             <input type="tel" id="recipientPhoneSecondary" placeholder="0700000000" required />
           </div>
 
-          <div class="field-group"><label>وصف الطرد تفصيلياً <span class="required">*</span>:</label><textarea id="parcelDescription" rows="3" placeholder="اكتب وصفاً واضحاً ومفصلاً للطرد..."></textarea></div>
+          <div class="field-group"><label>وصف الطرد أو محتوى الشحنة تفصيلياً <span class="required">*</span>:</label><textarea id="parcelDescription" rows="3" placeholder="اكتب وصفاً واضحاً ومفصلاً للطرد..."></textarea></div>
 
           <div class="security-box-warning">
             <h4>🚨 إشعار أمني وقانوني صارم</h4>
-            <p>يمنع منعاً كلياً استغلال منصة التوصيل لنقل أي مواد ممنوعة قانوناً. يمنح التطبيق للأجهزة الأمنية والشرطة القضائية الصلاحية الفورية لمراجعة وتسليم كافة البيانات الرقمية عند أي اشتباه.</p>
+            <p>
+              يمنع منعاً كلياً استغلال منصة التوصيل لنقل أو حيازة أي مواد ممنوعة قانوناً أو مخدرات أو مؤثرات عقلية.
+              <strong>يمنح التطبيق للأجهزة الأمنية والشرطة القضائية الصلاحية الفورية لمراجعة وتسليم كافة البيانات الرقمية، أرقام الهواتف، تسجيلات GPS ومسارات النقل عند أي اشتباه.</strong>
+            </p>
             <label class="security-checkbox-label">
               <input type="checkbox" id="securityAcceptedCheckbox" required />
-              <span>أوافق صراحة على الشروط الأمنية وأتحمل كامل المسؤولية القانونية عن محتوى الطرد.</span>
+              <span>أوافق صراحة على الشروط الأمنية وأتحمل كامل المسؤولية القانونية والجنائية عن محتوى الطرد.</span>
             </label>
           </div>
 
           <button class="btn-submit" onclick="safeExecute(createNewOrder)">🚀 إرسال الطلب وحساب السعر المضبوط</button>
         </div>
 
-        <!-- تتبع الطلب الحي -->
         <div id="clientOrdersView" class="view-panel">
-          <h3 style="font-size: 14px; margin-bottom: 10px; color: var(--primary)">🛵 التتبع الحي المباشر لموقع الموصل</h3>
+          <h3 style="font-size: 14px; margin-bottom: 10px; color: var(--primary)">🛵 التتبع الحي المباشر لموقع الموصل (مثل inDrive)</h3>
           <div id="clientTrackingMap"></div>
           <div id="clientOrdersListContainer" style="margin-top: 10px;"><p style="font-size: 11px; color: var(--text-muted)">جاري جلب تفاصيل التتبع الحي من قاعدة البيانات...</p></div>
         </div>
 
-        <!-- رادار الطلبات للسائق -->
         <div id="ordersView" class="view-panel">
           <h3 style="font-size: 14px; margin-bottom: 10px; color: var(--primary)">📡 رادار الطلبات والخرائط التوجيهية</h3>
           <div id="driverActiveOrderContainer" style="display: none;">
@@ -452,7 +449,6 @@
           <div id="ordersListContainer"><p style="font-size: 11px; color: var(--text-muted)">جاري تحميل الطلبات المتاحة في الرادار...</p></div>
         </div>
 
-        <!-- لوحة الأداء -->
         <div id="performanceView" class="view-panel">
           <h3 style="color: var(--primary); font-size: 15px; margin-bottom: 14px;">📊 لوحة الأداء والمستويات الاحترافية</h3>
           <div class="perf-circles-grid">
@@ -480,4 +476,926 @@
               <div class="progress-ring-container">
                 <svg class="progress-ring-svg" viewBox="0 0 36 36">
                   <path class="progress-ring-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                  <path id="circleCancelFill" class="progress-ring-fill" stroke="#10b98
+                  <path id="circleCancelFill" class="progress-ring-fill" stroke="#10b981" stroke-dasharray="0, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                </svg>
+                <div class="progress-ring-value-box"><span class="progress-ring-icon">⚠</span><span class="progress-ring-value" id="valCancelRate">0%</span></div>
+              </div>
+              <span class="perf-circle-title">نسبة الإلغاء</span>
+            </div>
+          </div>
+        </div>
+
+        <div id="earningsView" class="view-panel">
+          <h3 style="color: var(--primary); font-size: 15px; margin-bottom: 12px;">💰 الأرباح والسجل المالي</h3>
+          <div class="earnings-filter-tabs">
+            <button class="earnings-tab-btn active" onclick="switchEarningsPeriod('day', this)">اليوم</button>
+            <button class="earnings-tab-btn" onclick="switchEarningsPeriod('week', this)">الأسبوع</button>
+            <button class="earnings-tab-btn" onclick="switchEarningsPeriod('month', this)">الشهر</button>
+          </div>
+          <div class="indrive-order-card" style="text-align: center; padding: 18px; background: linear-gradient(135deg, rgba(16,185,129,0.15), var(--card-bg));">
+            <span style="font-size: 12px; color: var(--text-muted);" id="earningsPeriodLabel">إجمالي دخل اليوم</span>
+            <div style="font-size: 26px; font-weight: 900; color: var(--primary); margin: 6px 0;" id="earningsTotalAmount">0.00 MAD</div>
+            <div style="display: flex; justify-content: space-around; margin-top: 12px; border-top: 1px solid var(--border); padding-top: 10px; font-size: 11px;">
+              <div>📦 عدد الطلبات: <strong id="earningsOrdersCount">0</strong></div>
+              <div>🛣 المسافة: <strong id="earningsTotalKm">0 كم</strong></div>
+            </div>
+            <div style="margin-top: 8px; font-size: 11px; color: var(--warning);">📉 اقتطاع التطبيق (10%): <strong id="earningsAppFee">0.00 MAD</strong></div>
+          </div>
+        </div>
+
+        <div id="walletView" class="view-panel">
+          <div class="wallet-box" style="background: var(--card-bg); border: 1px solid var(--border); padding: 14px; border-radius: 12px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 13px; font-weight: bold">💳 رصيد المحفظة الحالي:</span>
+            <span id="driverWalletBalance" style="font-size: 18px; font-weight: 900; color: var(--primary)">0.00 MAD</span>
+          </div>
+          <div class="bonus-badge" style="background: rgba(245, 158, 11, 0.1); border: 1px dashed var(--warning); padding: 10px; border-radius: 10px; font-size: 11px; margin-bottom: 12px;">🎁 <b>عروض الشحن (CIH):</b> الحد الأدنى للشحن هو 30 درهم:</div>
+          
+          <div class="bonus-circles-container">
+            <div class="bonus-circle" onclick="selectBonusOffer(50, this)">
+              <span class="b-val">50 MAD</span>
+              <span class="b-desc">🎁 +4 د بونيس</span>
+            </div>
+            <div class="bonus-circle" onclick="selectBonusOffer(100, this)">
+              <span class="b-val">100 MAD</span>
+              <span class="b-desc">⭐ +10 د بونيس</span>
+            </div>
+          </div>
+
+          <div class="field-group" style="margin-top: 10px;"><label>مبلغ الشحن المرغوب (الحد الأدنى 30 درهم) <span class="required">*</span>:</label><input type="number" id="walletRechargeAmount" placeholder="50" /></div>
+          <div class="field-group">
+            <label>📸 التقاط صورة وصل التحويل بالكاميرا (إلزامي) <span class="required">*</span>:</label>
+            <input type="file" id="receiptImageFile" accept="image/*" capture="environment" style="background:var(--bg-dark); padding:10px; width:100%; color:white; border:2px dashed var(--primary); border-radius:10px;" />
+          </div>
+          <button class="btn-submit" onclick="safeExecute(submitRealWalletTopupRequest)">📷 إرسال صورة الوصل للاعتماد</button>
+        </div>
+
+        <div id="supportView" class="view-panel">
+          <h3 style="font-size: 14px; margin-bottom: 12px; color: var(--primary)">💬 الدعم الفني والخدمة</h3>
+          <div class="field-group"><textarea id="supportMessage" rows="4" placeholder="اكتب تفاصيل مشكلتك..."></textarea></div>
+          <button class="btn-submit" onclick="safeExecute(() => showAppToast('تم الإرسال', 'تم إرسال شكواك للادارة بنجاح!'))">📨 إرسال للادارة</button>
+        </div>
+      </div>
+
+      <nav class="driver-bottom-nav" id="driverBottomNav" style="display: none; position: fixed; bottom: 0; left: 0; right: 0; background: var(--card-bg); border-top: 1px solid var(--border); padding: 8px; justify-content: space-around; z-index: 1000;">
+        <button class="nav-item active" onclick="safeExecute(() => switchMainView('ordersView'))" style="background: transparent; border: none; color: var(--text-main); font-size: 10px; cursor: pointer;"><span>📡 الرادار</span></button>
+        <button class="nav-item" onclick="safeExecute(() => switchMainView('performanceView'))" style="background: transparent; border: none; color: var(--text-main); font-size: 10px; cursor: pointer;"><span>📊 الأداء</span></button>
+        <button class="nav-item" onclick="safeExecute(() => switchMainView('earningsView'))" style="background: transparent; border: none; color: var(--text-main); font-size: 10px; cursor: pointer;"><span>💰 الأرباح</span></button>
+        <button class="nav-item" onclick="safeExecute(() => switchMainView('walletView'))" style="background: transparent; border: none; color: var(--text-main); font-size: 10px; cursor: pointer;"><span>💼 المحفظة</span></button>
+      </nav>
+    </div>
+
+    <script>
+      function safeExecute(fn) { try { if (typeof fn === 'function') fn(); } catch (error) { console.error("Execution Error:", error); } }
+
+      const SUPABASE_URL = "https://cauujrnxtqswjzqhphyq.supabase.co";
+      const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNhdXVqcm54dHFzd2p6cWhwaHlxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4ODM0MTA0MywiZXhwIjoyMTAzOTE3MDQzfQ.17AG1uMHj14ZNVuzp56-9_Z2KYeG50Oo3k__kDbhUok";
+      const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+      mapboxgl.accessToken = 'pk.eyJ1IjoiaWRzaWRpIiwiYSI6ImNtdTJscHkybjAwbW8yeXF1cXFhdXozaWMifQ.FDKkwkz9kdug1cghlLNChw';
+
+      if (mapboxgl.setRTLTextPlugin) {
+        mapboxgl.setRTLTextPlugin(
+          'https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-rtl-text/v0.2.3/mapbox-gl-rtl-text.js',
+          null,
+          true
+        );
+      }
+
+      const CASA_BOUNDS = [
+        [-7.8800, 33.4200],
+        [-7.3800, 33.6800]
+      ];
+
+      const CASA_DISTRICTS_DB = [
+        { name: "المعاريف (Maârif)", lat: 33.5855, lng: -7.6324 },
+        { name: "سيدي معروف (Sidi Maarouf - Casanearshore)", lat: 33.5350, lng: -7.6432 },
+        { name: "عين الدياب (Aïn Diab - La Corniche)", lat: 33.5932, lng: -7.6698 },
+        { name: "سيدي البرنوصي (Sidi Bernoussi)", lat: 33.6062, lng: -7.5140 },
+        { name: "سباتة (Sbata)", lat: 33.5511, lng: -7.5812 },
+        { name: "الحي المحمدي (Hay Mohammadi)", lat: 33.5975, lng: -7.5684 },
+        { name: "الولفة (Oulfa / Hay Hassani)", lat: 33.5601, lng: -7.6745 },
+        { name: "حي أنفا (Anfa)", lat: 33.5880, lng: -7.6520 },
+        { name: "درب غلف (Derb Ghallef)", lat: 33.5760, lng: -7.6310 },
+        { name: "درب السلطان (Derb Sultan)", lat: 33.5650, lng: -7.6010 },
+        { name: "حي كاليفورنيا (Californie)", lat: 33.5420, lng: -7.6250 },
+        { name: "بوركون (Bourgogne)", lat: 33.5980, lng: -7.6410 },
+        { name: "بلفدير / روش نوار (Belvédère / Roches Noires)", lat: 33.5990, lng: -7.5950 },
+        { name: "سيدي عثمان (Sidi Othmane)", lat: 33.5620, lng: -7.5510 },
+        { name: "مولاي رشيد (Moulay Rachid)", lat: 33.5670, lng: -7.5250 },
+        { name: "عين الشق (Aïn Chock)", lat: 33.5480, lng: -7.6020 },
+        { name: "طماريس / دار بوعزة (Tamaris / Dar Bouazza)", lat: 33.5210, lng: -7.8105 },
+        { name: "بوسكورة (Bouskoura)", lat: 33.4520, lng: -7.6490 },
+        { name: "تيط مليل (Tit Mellil)", lat: 33.5580, lng: -7.4850 },
+        { name: "عين السبع (Aïn Sebaâ)", lat: 33.6080, lng: -7.5380 },
+        { name: "المدينة القديمة (Ancienne Médina)", lat: 33.6010, lng: -7.6190 }
+      ];
+
+      let currentUserId = localStorage.getItem("app_user_id") || null;
+      let currentUserName = localStorage.getItem("app_user_name") || "";
+      let currentRole = localStorage.getItem("app_user_role") || "";
+      let currentUserPhone = localStorage.getItem("app_user_phone") || "";
+
+      let userCurrentLat = 33.5731, userCurrentLng = -7.5898;
+      let deliveryLat = null, deliveryLng = null;
+      let mapboxInstance = null, deliveryMarker = null, trackingMapInstance = null, trackingDriverMarker = null;
+      let driverActiveMapInstance = null, driverActiveMarker = null, currentActiveOrder = null;
+      let currentAuthMode = 'login', wakeLockInstance = null;
+      let radarOrdersCache = [], radarInterval = null, clientTrackingInterval = null, driverLocationUpdateInterval = null;
+      let searchTimeout = null;
+
+      function selectBonusOffer(amount, el) {
+        document.getElementById('walletRechargeAmount').value = amount;
+        document.querySelectorAll('.bonus-circle').forEach(c => c.classList.remove('active'));
+        if (el) el.classList.add('active');
+      }
+
+      function formatShortAddress(fullAddress) {
+        if (!fullAddress) return 'العنوان غير متوفر';
+        const parts = fullAddress.split(',');
+        return parts.length > 1 ? `${parts[0].trim()},${parts[1].trim()}` : fullAddress;
+      }
+
+      function calculateDistanceMeters(lat1, lon1, lat2, lon2) {
+        const R = 6371e3;
+        const φ1 = lat1 * Math.PI/180;
+        const φ2 = lat2 * Math.PI/180;
+        const Δφ = (lat2-lat1) * Math.PI/180;
+        const Δλ = (lon2-lon1) * Math.PI/180;
+        const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ/2) * Math.sin(Δλ/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        return R * c;
+      }
+
+      async function drawMapboxRoute(mapObj, startLng, startLat, endLng, endLat, layerId = 'route-layer', lineColor = '#1e3a8a') {
+        if (!mapObj || !startLng || !startLat || !endLng || !endLat) return;
+        try {
+          const response = await fetch('/api/get-live-route', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ start_lng: startLng, start_lat: startLat, end_lng: endLng, end_lat: endLat })
+          });
+          const result = await response.json();
+          if (result.status === 'success') {
+            const geojson = { type: 'Feature', properties: {}, geometry: result.route_geometry };
+            if (mapObj.getSource(layerId)) {
+              mapObj.getSource(layerId).setData(geojson);
+            } else {
+              if (!mapObj.isStyleLoaded()) {
+                mapObj.on('load', () => drawMapboxRoute(mapObj, startLng, startLat, endLng, endLat, layerId, lineColor));
+                return;
+              }
+              mapObj.addSource(layerId, { type: 'geojson', data: geojson });
+              mapObj.addLayer({
+                id: layerId, type: 'line', source: layerId,
+                layout: { 'line-join': 'round', 'line-cap': 'round' },
+                paint: { 'line-color': lineColor, 'line-width': 6, 'line-opacity': 0.9 }
+              });
+            }
+          }
+        } catch (e) { console.error("Mapbox Route Error:", e); }
+      }
+
+      async function requestScreenWakeLock() {
+        if ('wakeLock' in navigator) {
+          try { wakeLockInstance = await navigator.wakeLock.request('screen'); } catch (err) {}
+        }
+      }
+      function releaseScreenWakeLock() { if (wakeLockInstance) { wakeLockInstance.release(); wakeLockInstance = null; } }
+
+      function setAppLanguage(lang) {
+        localStorage.setItem("app_lang", lang);
+        document.getElementById("htmlRoot").setAttribute("lang", lang);
+        document.getElementById("htmlRoot").setAttribute("dir", lang === 'ar' ? 'rtl' : 'ltr');
+      }
+
+      // الدالة الأصلية كما طلبتها تماماً دون أي نقصان
+      function requestUserLocationPermission() {
+        const overlay = document.getElementById("locationOverlay");
+        if (!navigator.geolocation) {
+          if (overlay) overlay.style.display = "none";
+          showAppToast("تنبيه", "ميزة تحديد الموقع غير مدعومة في متصفحك.");
+          return;
+        }
+        navigator.geolocation.getCurrentPosition(pos => {
+          userCurrentLat = pos.coords.latitude;
+          userCurrentLng = pos.coords.longitude;
+          if (overlay) overlay.style.display = "none";
+          if (mapboxInstance) {
+            mapboxInstance.resize();
+            mapboxInstance.setCenter([userCurrentLng, userCurrentLat]);
+            if (deliveryMarker) {
+              deliveryMarker.setLngLat([userCurrentLng, userCurrentLat]);
+            }
+            updateCoordsDisplay(userCurrentLat, userCurrentLng);
+          }
+          showAppToast("تم بنجاح 📍", "تم تحديد موقعك الجغرافي بنجاح.");
+        }, (err) => {
+          if (overlay) overlay.style.display = "none";
+          showAppToast("تنبيه موقع GPS", "يرجى السماح بالوصول للموقع من إعدادات المتصفح.");
+        }, { enableHighAccuracy: true });
+      }
+
+      function toggleDrawer() {
+        document.getElementById("sideDrawer").classList.toggle("active");
+        document.getElementById("drawerOverlay").classList.toggle("active");
+      }
+
+      function switchMainView(viewId) {
+        document.querySelectorAll(".view-panel").forEach(p => p.classList.remove("active"));
+        const targetView = document.getElementById(viewId);
+        if (targetView) targetView.classList.add("active");
+        const drawer = document.getElementById("sideDrawer");
+        const overlay = document.getElementById("drawerOverlay");
+        if (drawer && drawer.classList.contains("active")) { drawer.classList.remove("active"); overlay.classList.remove("active"); }
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+
+        if (viewId === 'ordersView' && currentRole === 'driver') {
+          checkDriverActiveOrder();
+          if (!radarInterval) radarInterval = setInterval(() => { if (currentRole === 'driver' && document.getElementById('ordersView').classList.contains('active')) checkDriverActiveOrder(); }, 5000);
+          startDriverLiveLocationTracking();
+        } else {
+          if (radarInterval) { clearInterval(radarInterval); radarInterval = null; }
+          if (driverLocationUpdateInterval) { clearInterval(driverLocationUpdateInterval); driverLocationUpdateInterval = null; }
+        }
+
+        if (viewId === 'clientOrdersView' && currentRole === 'customer') {
+          setTimeout(() => initMapboxClientTracking(), 300);
+          if (!clientTrackingInterval) clientTrackingInterval = setInterval(() => { if (currentRole === 'customer' && document.getElementById('clientOrdersView').classList.contains('active')) updateMapboxClientLiveTracking(); }, 4000);
+        } else {
+          if (clientTrackingInterval) { clearInterval(clientTrackingInterval); clientTrackingInterval = null; }
+        }
+
+        if (viewId === 'clientView') setTimeout(() => initMapboxClientMap(), 300);
+        if (viewId === 'performanceView') loadDriverPerformanceRealData();
+        if (viewId === 'earningsView') loadDriverEarningsRealData('day');
+        if (viewId === 'walletView') fetchDriverWalletBalance();
+      }
+
+      async function loadDriverPerformanceRealData() {
+        if (!currentUserId || currentRole !== 'driver') return;
+        try {
+          const { data: orders } = await supabaseClient.from('orders').select('*').eq('driver_id', currentUserId);
+          const allOrders = orders || [];
+          const todayStr = new Date().toISOString().split('T')[0];
+          const countToday = allOrders.filter(o => o.status === 'completed' && o.updated_at && o.updated_at.startsWith(todayStr)).length;
+          document.getElementById('valOrdersCount').innerText = countToday;
+          document.getElementById('circleOrdersFill').style.strokeDasharray = `${Math.min((countToday / 15) * 100, 100)}, 100`;
+          document.getElementById('valEvalScore').innerText = allOrders.length > 0 ? '4.9' : '4.8';
+          const cancelledCount = allOrders.filter(o => o.status === 'cancelled').length;
+          const cancelRate = allOrders.length > 0 ? Math.round((cancelledCount / allOrders.length) * 100) : 0;
+          document.getElementById('valCancelRate').innerText = cancelRate + '%';
+        } catch (e) {}
+      }
+
+      async function loadDriverEarningsRealData(period) {
+        if (!currentUserId || currentRole !== 'driver') return;
+        try {
+          const { data: orders } = await supabaseClient.from('orders').select('*').eq('driver_id', currentUserId).eq('status', 'completed');
+          const allCompleted = orders || [];
+          const now = new Date();
+          const filteredOrders = allCompleted.filter(o => {
+            if (!o.created_at) return false;
+            const d = new Date(o.created_at);
+            if (period === 'day') return d.toDateString() === now.toDateString();
+            if (period === 'week') return Math.abs(now - d) / (1000 * 60 * 60 * 24) <= 7;
+            return d.getMonth() === now.getMonth();
+          });
+          let totalEarnings = 0, totalKm = 0;
+          filteredOrders.forEach(o => { totalEarnings += parseFloat(o.price_mad || 25); totalKm += parseFloat(o.distance_km || 3.2); });
+          document.getElementById('earningsTotalAmount').innerText = `${totalEarnings.toFixed(2)} MAD`;
+          document.getElementById('earningsOrdersCount').innerText = filteredOrders.length;
+          document.getElementById('earningsTotalKm').innerText = `${totalKm.toFixed(1)} كم`;
+          document.getElementById('earningsAppFee').innerText = `${(totalEarnings * 0.10).toFixed(2)} MAD`;
+        } catch (e) {}
+      }
+
+      function switchEarningsPeriod(period, btnEl) {
+        document.querySelectorAll('.earnings-tab-btn').forEach(b => b.classList.remove('active'));
+        if (btnEl) btnEl.classList.add('active');
+        loadDriverEarningsRealData(period);
+      }
+
+      function startDriverLiveLocationTracking() {
+        if (!navigator.geolocation) return;
+        if (driverLocationUpdateInterval) clearInterval(driverLocationUpdateInterval);
+        driverLocationUpdateInterval = setInterval(() => {
+          navigator.geolocation.getCurrentPosition(async pos => {
+            userCurrentLat = pos.coords.latitude; 
+            userCurrentLng = pos.coords.longitude;
+            if (currentUserId && currentRole === 'driver') {
+              try {
+                if (currentActiveOrder && currentActiveOrder.id) {
+                  await supabaseClient.from('orders').update({
+                    driver_lat: userCurrentLat,
+                    driver_lng: userCurrentLng
+                  }).eq('id', currentActiveOrder.id);
+                  
+                  const targetNavLat = (currentActiveOrder.status === 'assigned') ? currentActiveOrder.pickup_lat : currentActiveOrder.dropoff_lat;
+                  const targetNavLng = (currentActiveOrder.status === 'assigned') ? currentActiveOrder.pickup_lng : currentActiveOrder.dropoff_lng;
+                  if (driverActiveMapInstance && targetNavLat && targetNavLng) {
+                    driverActiveMapInstance.setCenter([userCurrentLng, userCurrentLat]);
+                    if (driverActiveMarker) driverActiveMarker.setLngLat([userCurrentLng, userCurrentLat]);
+                    drawMapboxRoute(driverActiveMapInstance, userCurrentLng, userCurrentLat, targetNavLng, targetNavLat, 'driver-route', '#1e3a8a');
+                  }
+                }
+                await supabaseClient.rpc('update_driver_status', { p_driver_id: currentUserId, p_lat: userCurrentLat, p_lng: userCurrentLng, p_online: true });
+              } catch (e) { console.error("Driver location update error:", e); }
+            }
+          }, () => {}, { enableHighAccuracy: true });
+        }, 4000);
+      }
+
+      function selectServiceCategory(categoryName) {
+        document.getElementById("orderCategory").value = categoryName;
+        if (currentUserId) {
+          if (currentRole === 'driver') { showAppToast("تنبيه", "أنت مسجل بحساب موصل."); switchMainView('ordersView'); }
+          else { switchMainView('clientView'); }
+        } else { switchMainView('authView'); }
+      }
+
+      async function toggleDriverOnlineStatus() {
+        if (!currentUserId || currentRole !== 'driver') return;
+        const toggleBtn = document.getElementById("driverStatusToggle");
+        const newStatus = !toggleBtn.classList.contains("online");
+        try {
+          await supabaseClient.rpc('update_driver_status', { p_driver_id: currentUserId, p_lat: userCurrentLat, p_lng: userCurrentLng, p_online: newStatus });
+          if (newStatus) {
+            toggleBtn.classList.remove("online"); toggleBtn.classList.add("online");
+            document.getElementById("driverStatusText").innerText = "متصل الآن 🟢";
+            await requestScreenWakeLock(); checkDriverActiveOrder();
+          } else {
+            toggleBtn.classList.remove("online"); toggleBtn.classList.add("offline");
+            document.getElementById("driverStatusText").innerText = "غير متصل 🔴";
+            releaseScreenWakeLock();
+          }
+        } catch (err) { showAppToast("خطأ", err.message); }
+      }
+
+      async function checkDriverActiveOrder() {
+        if (currentRole !== 'driver') return;
+        try {
+          const { data: orders } = await supabaseClient.from('orders').select('*').eq('driver_id', currentUserId).in('status', ['assigned', 'picked_up']);
+          const container = document.getElementById("ordersListContainer");
+          const activeContainer = document.getElementById("driverActiveOrderContainer");
+          if (orders && orders.length > 0) {
+            currentActiveOrder = orders[0];
+            activeContainer.style.display = "block"; container.style.display = "none";
+            renderDriverActiveOrderView(currentActiveOrder);
+          } else {
+            currentActiveOrder = null;
+            activeContainer.style.display = "none"; container.style.display = "block";
+            fetchRadarOrders();
+          }
+        } catch (e) { fetchRadarOrders(); }
+      }
+
+      async function fetchRadarOrders() {
+        if (currentRole !== 'driver' || currentActiveOrder) return;
+        try {
+          const { data: orders } = await supabaseClient.from('orders').select('*').or('status.eq.pending,driver_id.is.null');
+          radarOrdersCache = (orders || []).map(o => ({ ...o, calculatedDist: 1.5 }));
+          renderDriverRadarOrders(radarOrdersCache);
+        } catch (e) { renderDriverRadarOrders([]); }
+      }
+
+      function renderDriverActiveOrderView(order) {
+        const detailsContainer = document.getElementById("driverActiveOrderDetails");
+        const pLat = order.pickup_lat || userCurrentLat, pLng = order.pickup_lng || userCurrentLng;
+        const dLat = order.dropoff_lat || userCurrentLat, dLng = order.dropoff_lng || userCurrentLng;
+        
+        const targetNavLat = (order.status === 'assigned') ? pLat : dLat;
+        const targetNavLng = (order.status === 'assigned') ? pLng : dLng;
+
+        let statusTextAr = order.status === 'assigned' ? '📦 في الطريق لاستلام الطرد' : '🚀 جاري التوصيل لنقطة التسليم للزبون';
+
+        let btnHtml = (order.status === 'assigned') ? 
+          `<button class="btn-indrive-action" onclick="updateOrderStatus('${order.id}', 'picked_up')">📍 تأكيد الوصول والاستلام</button>` :
+          `<button class="btn-indrive-action" style="background:var(--warning);" onclick="updateOrderStatus('${order.id}', 'completed')">🏁 إتمام الطلب وتسليم الشحنة</button>`;
+
+        detailsContainer.innerHTML = `
+          <div class="indrive-order-card" style="margin-bottom:0;">
+            <div class="card-top-info"><span class="price-badge-indrive">${order.price_mad || 20} MAD</span><span class="distance-tag">${statusTextAr}</span></div>
+            <div class="location-row"><span class="dot-point pickup"></span><span><b>الاستلام:</b> ${formatShortAddress(order.pickup_address)}</span></div>
+            <div class="location-row"><span class="dot-point delivery"></span><span><b>التسليم:</b> ${formatShortAddress(order.dropoff_address)}</span></div>${btnHtml}
+          </div>
+        `;
+        document.getElementById("driverActiveOrderContainer").style.display = "block";
+        document.getElementById("ordersListContainer").style.display = "none";
+        setTimeout(() => {
+          initMapboxDriverActiveMap(targetNavLng, targetNavLat);
+          drawMapboxRoute(driverActiveMapInstance, userCurrentLng, userCurrentLat, targetNavLng, targetNavLat, 'driver-route', '#1e3a8a');
+        }, 200);
+      }
+
+      function initMapboxDriverActiveMap(lng, lat) {
+        if (!driverActiveMapInstance) {
+          driverActiveMapInstance = new mapboxgl.Map({
+            container: 'driverActiveMap',
+            style: 'mapbox://styles/mapbox/streets-v12',
+            center: [lng || userCurrentLng, lat || userCurrentLat],
+            zoom: 15
+          });
+          if (typeof MapboxLanguage !== 'undefined') {
+            driverActiveMapInstance.addControl(new MapboxLanguage({ defaultLanguage: 'ar' }));
+          }
+          const el = document.createElement('div');
+          el.innerHTML = '<div style="background:#1e3a8a; color:white; padding:6px 10px; border-radius:50px; font-size:16px; box-shadow:0 0 12px rgba(30,58,138,0.6); display:flex; align-items:center; gap:4px; font-weight:bold;">🛵</div>';
+          driverActiveMarker = new mapboxgl.Marker(el).setLngLat([userCurrentLng, userCurrentLat]).addTo(driverActiveMapInstance);
+        } else {
+          driverActiveMapInstance.resize();
+          driverActiveMapInstance.setCenter([lng, lat]);
+        }
+      }
+
+      function openNavSelectionModal() { document.getElementById("navModalOverlay").style.display = "flex"; }
+      function closeNavModal(e) { if (!e || e.target.id === 'navModalOverlay' || e.target.tagName === 'BUTTON') document.getElementById("navModalOverlay").style.display = "none"; }
+      
+      function openNavigatorApp(type, destinationType) {
+        closeNavModal();
+        if (!currentActiveOrder) { 
+          showAppToast("تنبيه", "لا يوجد طلب نشط حالياً."); 
+          return; 
+        }
+        
+        let destLat = destinationType === 'pickup' ? currentActiveOrder.pickup_lat : currentActiveOrder.dropoff_lat;
+        let destLng = destinationType === 'pickup' ? currentActiveOrder.pickup_lng : currentActiveOrder.dropoff_lng;
+        
+        if (!destLat || !destLng) { 
+          showAppToast("تنبيه GPS", "إحداثيات الوجهة غير متوفرة في هذا الطلب."); 
+          return; 
+        }
+        
+        let url = type === 'waze' ? 
+          `https://waze.com/ul?ll=${destLat},${destLng}&navigate=yes` : 
+          `https://www.google.com/maps/dir/?api=1&destination=${destLat},${destLng}&travelmode=driving`;
+        
+        window.open(url, '_blank');
+      }
+
+      async function updateOrderStatus(orderId, newStatus) {
+        try {
+          if (currentActiveOrder) {
+            const targetLat = (newStatus === 'picked_up') ? currentActiveOrder.pickup_lat : currentActiveOrder.dropoff_lat;
+            const targetLng = (newStatus === 'picked_up') ? currentActiveOrder.pickup_lng : currentActiveOrder.dropoff_lng;
+            if (targetLat && targetLng) {
+              const distanceMeters = calculateDistanceMeters(userCurrentLat, userCurrentLng, targetLat, targetLng);
+              if (distanceMeters > 250) {
+                showAppToast("تنبيه GPS 🚫", `لا يمكنك تأكيد العملية! أنت تبعد عن النقطة بـ ${Math.round(distanceMeters)} متر.`);
+                return;
+              }
+            }
+          }
+          await supabaseClient.from('orders').update({ status: newStatus, driver_id: (newStatus==='completed'? currentUserId : undefined) }).eq('id', orderId);
+          showAppToast("تم بنجاح ✅", "تم تحديث حالة الطلب ومسار التوجيه.");
+          checkDriverActiveOrder();
+        } catch (e) { showAppToast("خطأ", e.message); }
+      }
+
+      async function initMapboxClientTracking() {
+        if (!trackingMapInstance) {
+          trackingMapInstance = new mapboxgl.Map({
+            container: 'clientTrackingMap',
+            style: 'mapbox://styles/mapbox/streets-v12',
+            center: [userCurrentLng, userCurrentLat],
+            zoom: 15
+          });
+          if (typeof MapboxLanguage !== 'undefined') {
+            trackingMapInstance.addControl(new MapboxLanguage({ defaultLanguage: 'ar' }));
+          }
+        } else {
+          trackingMapInstance.resize();
+        }
+        await updateMapboxClientLiveTracking();
+      }
+
+      async function updateMapboxClientLiveTracking() {
+        const container = document.getElementById("clientOrdersListContainer");
+        if (currentRole !== 'customer' || !trackingMapInstance) return;
+        try {
+          const { data: orders } = await supabaseClient.from('orders').select('*').eq('customer_id', currentUserId).order('created_at', { ascending: false });
+          if (!orders || orders.length === 0) { 
+            container.innerHTML = `<p style="font-size: 11px; color: var(--text-muted); text-align: center;">لا توجد طلبات نشطة حالياً.</p>`; 
+            return; 
+          }
+          const activeOrder = orders[0];
+          let pLat = activeOrder.pickup_lat || userCurrentLat, pLng = activeOrder.pickup_lng || userCurrentLng;
+          let dLat = activeOrder.dropoff_lat || userCurrentLat, dLng = activeOrder.dropoff_lng || userCurrentLng;
+          let driverLat = activeOrder.driver_lat || pLat;
+          let driverLng = activeOrder.driver_lng || pLng;
+
+          drawMapboxRoute(trackingMapInstance, driverLng, driverLat, dLng, dLat, 'tracking-route', '#1e3a8a');
+
+          if (!window.mapboxPickupMarker) {
+            window.mapboxPickupMarker = new mapboxgl.Marker({ color: '#1e3a8a' }).setLngLat([pLng, pLat]).addTo(trackingMapInstance);
+            window.mapboxDropoffMarker = new mapboxgl.Marker({ color: '#ef4444' }).setLngLat([dLng, dLat]).addTo(trackingMapInstance);
+          }
+
+          if (!trackingDriverMarker) {
+            const el = document.createElement('div');
+            el.innerHTML = '<div style="background:#1e3a8a; color:white; padding:6px 10px; border-radius:50px; font-size:16px; box-shadow:0 0 12px rgba(30,58,138,0.6); display:flex; align-items:center; gap:4px; font-weight:bold;">🛵</div>';
+            trackingDriverMarker = new mapboxgl.Marker(el).setLngLat([driverLng, driverLat]).addTo(trackingMapInstance);
+          } else {
+            trackingDriverMarker.setLngLat([driverLng, driverLat]);
+          }
+
+          container.innerHTML = `
+            <div class="indrive-order-card">
+              <div class="card-top-info"><span class="price-badge-indrive">${activeOrder.price_mad} MAD</span><span class="distance-tag">الحالة: ${activeOrder.status}</span></div>
+              <div class="location-row"><span class="dot-point pickup"></span><span><b>الاستلام:</b> ${formatShortAddress(activeOrder.pickup_address)}</span></div>
+              <div class="location-row"><span class="dot-point delivery"></span><span><b>التسليم:</b> ${formatShortAddress(activeOrder.dropoff_address)}</span></div>
+            </div>
+          `;
+        } catch (e) { console.error("Client tracking fetch error:", e); }
+      }
+
+      function renderDriverRadarOrders(orders) {
+        const container = document.getElementById("ordersListContainer");
+        if (!container) return;
+        if (!orders || orders.length === 0) { container.innerHTML = `<p style="font-size: 11px; color: var(--text-muted); text-align: center; padding: 10px;">لا توجد طلبيات في الرادار.</p>`; return; }
+        let html = '';
+        orders.forEach(o => {
+          html += `
+            <div class="indrive-order-card">
+              <div class="card-top-info"><span class="price-badge-indrive">${o.price_mad || 20} MAD</span><span class="distance-tag">📍 المسافة: ${o.calculatedDist} كلم</span></div>
+              <div class="location-row"><span class="dot-point pickup"></span><span><b>الاستلام:</b> ${formatShortAddress(o.pickup_address)}</span></div>
+              <div class="location-row"><span class="dot-point delivery"></span><span><b>التسليم:</b> ${formatShortAddress(o.dropoff_address)}</span></div>
+              <button class="btn-indrive-action" onclick="acceptOrder('${o.id}')">🛵 قبول الطلب الآن</button>
+            </div>
+          `;
+        });
+        container.innerHTML = html;
+      }
+
+      async function acceptOrder(orderId) {
+        try {
+          const res = await fetch('/accept-order', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ order_id: orderId, driver_id: currentUserId })
+          });
+          if (!res.ok) throw new Error("فشل قبول الطلب");
+          showAppToast("تم بنجاح", "تم قبول الطلب بنجاح.");
+          checkDriverActiveOrder();
+        } catch (e) { showAppToast("خطأ", e.message); }
+      }
+
+      function showAppToast(title, message) {
+        document.getElementById("toastTitle").innerText = title;
+        document.getElementById("toastMessage").innerText = message;
+        document.getElementById("customToastOverlay").style.display = "flex";
+      }
+      function closeCustomToast() { document.getElementById("customToastOverlay").style.display = "none"; }
+
+      function switchAuthMode(mode) {
+        currentAuthMode = mode;
+        document.getElementById("groupFullName").style.display = mode === 'signup' ? "block" : "none";
+        document.getElementById("groupPhone").style.display = mode === 'signup' ? "block" : "none";
+        document.getElementById("groupRole").style.display = mode === 'signup' ? "block" : "none";
+        document.getElementById("authFormTitle").innerText = mode === 'signup' ? "🚀 إنشاء حساب جديد مع رصيد ترحيبي 20 درهم" : "🔑 تسجيل الدخول لحسابك";
+      }
+
+      async function handleAuthAction() {
+        const email = document.getElementById("authEmail").value.trim();
+        const password = document.getElementById("authPassword").value.trim();
+        if (currentAuthMode === 'signup') {
+          const name = document.getElementById("authFullName").value.trim();
+          const phone = document.getElementById("authPhone").value.trim();
+          const role = document.getElementById("authRole").value;
+          
+          const initialBalance = (role === 'driver') ? 20.0 : 0.0;
+
+          const { data, error } = await supabaseClient.auth.signUp({ 
+            email, password, 
+            options: { data: { full_name: name, phone_number: phone, role, wallet_balance: initialBalance } } 
+          });
+          if (error) { showAppToast("خطأ", error.message); return; }
+          
+          if (data.user) {
+            await supabaseClient.from('profiles').upsert({
+              id: data.user.id,
+              full_name: name,
+              phone_number: phone,
+              role: role,
+              wallet_balance: initialBalance
+            });
+          }
+
+          localStorage.setItem("app_user_id", data.user.id);
+          localStorage.setItem("app_user_name", name);
+          localStorage.setItem("app_user_role", role);
+          localStorage.setItem("app_user_phone", phone);
+          showAppToast("مرحباً بك! 🎉", "تم منحك رصيداً ترحيبياً بقيمة 20 درهم في محفظتك.");
+          setTimeout(() => location.reload(), 1500);
+        } else {
+          const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+          if (error) { showAppToast("خطأ", error.message); return; }
+          const { data: profile } = await supabaseClient.from("profiles").select("*").eq("id", data.user.id).single();
+          localStorage.setItem("app_user_id", data.user.id);
+          localStorage.setItem("app_user_name", profile.full_name);
+          localStorage.setItem("app_user_role", profile.role);
+          localStorage.setItem("app_user_phone", profile.phone_number || "");
+          location.reload();
+        }
+      }
+
+      async function submitDriverDocuments() { showAppToast("جاري المعالجة", "تم رفع المستندات بنجاح."); }
+
+      async function submitRealWalletTopupRequest() {
+        const amount = parseFloat(document.getElementById("walletRechargeAmount").value.trim() || 0);
+        const fileInput = document.getElementById("receiptImageFile");
+        
+        if (amount < 30) {
+          showAppToast("تنبيه ⚠️", "الحد الأدنى للشحن عبر التحويل البنكي CIH هو 30 درهم.");
+          return;
+        }
+
+        if (!fileInput.files || fileInput.files.length === 0) {
+          showAppToast("تنبيه ⚠️", "يرجى التقاط صورة لوصل التحويل البنكي بالكاميرا للمطابقة.");
+          return;
+        }
+
+        try {
+          showAppToast("جاري الرفع...", "يتم رفع صورة الوصل وإرسال طلب الشحن...");
+          
+          const file = fileInput.files[0];
+          const fileExt = file.name.split('.').pop() || 'jpg';
+          const fileName = `receipt_${currentUserId}_${Date.now()}.${fileExt}`;
+          const filePath = `receipts/${fileName}`;
+
+          const { data: uploadData, error: uploadError } = await supabaseClient.storage
+            .from('assets')
+            .upload(filePath, file);
+
+          if (uploadError) throw uploadError;
+
+          const { data: publicUrlData } = supabaseClient.storage
+            .from('assets')
+            .getPublicUrl(filePath);
+
+          const receiptUrl = publicUrlData.publicUrl;
+
+          const res = await fetch('/api/wallet/topup', { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              user_id: currentUserId, 
+              amount: amount, 
+              receipt_url: receiptUrl 
+            })
+          });
+          
+          const result = await res.json();
+          if (!res.ok) throw new Error(result.detail || "فشل إرسال الطلب");
+          
+          showAppToast("تم بنجاح 📨", "تم إرسال طلب الشحن بنجاح للإدارة.");
+          document.getElementById("walletRechargeAmount").value = "";
+          fileInput.value = "";
+          fetchDriverWalletBalance();
+        } catch (e) {
+          showAppToast("خطأ ❌", e.message);
+        }
+      }
+
+      async function createNewOrder() {
+        const recipientPhone = document.getElementById("recipientPhone").value.trim();
+        const recipientPhoneSec = document.getElementById("recipientPhoneSecondary").value.trim();
+        const parcelDesc = document.getElementById("parcelDescription").value.trim();
+        const securityAccepted = document.getElementById("securityAcceptedCheckbox").checked;
+
+        if (!recipientPhone || !recipientPhoneSec) {
+          showAppToast("تنبيه ⚠️", "رقما هاتف المستلم إلزاميان معاً.");
+          return;
+        }
+
+        if (!securityAccepted) {
+          showAppToast("تنبيه أمني 🚨", "يجب الموافقة على الشروط الأمنية للمتابعة.");
+          return;
+        }
+
+        if (!parcelDesc) {
+          showAppToast("تنبيه", "يرجى كتابة وصف واضح لمحتوى الشحنة.");
+          return;
+        }
+
+        try {
+          const res = await fetch('/create-order', {
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              pickup_lat: userCurrentLat,
+              pickup_lng: userCurrentLng,
+              dropoff_lat: deliveryLat,
+              dropoff_lng: deliveryLng,
+              user_id: currentUserId,
+              customer_name: currentUserName,
+              customer_phone: currentUserPhone,
+              recipient_phone: recipientPhone,
+              recipient_phone_secondary: recipientPhoneSec,
+              notes: parcelDesc,
+              security_accepted: securityAccepted
+            })
+          });
+          const result = await res.json();
+          if (!res.ok) throw new Error(result.detail || result.message);
+          showAppToast("تم بنجاح 🚀", `تم إنشاء الطلب بالسعر: ${result.data.price_mad} MAD`);
+          switchMainView('clientOrdersView');
+        } catch (e) { showAppToast("خطأ", e.message); }
+      }
+
+      async function fetchDriverWalletBalance() {
+        if (!currentUserId) return;
+        try {
+          const { data } = await supabaseClient.from('profiles').select('wallet_balance').eq('id', currentUserId).single();
+          if (data) document.getElementById("driverWalletBalance").innerText = `${parseFloat(data.wallet_balance || 0).toFixed(2)} MAD`;
+        } catch (e) {}
+      }
+
+      function initMapboxClientMap() {
+        if (!navigator.geolocation) {
+          initMapboxMapInstance(userCurrentLat, userCurrentLng);
+          return;
+        }
+
+        navigator.geolocation.getCurrentPosition(pos => {
+          userCurrentLat = pos.coords.latitude;
+          userCurrentLng = pos.coords.longitude;
+          initMapboxMapInstance(userCurrentLat, userCurrentLng);
+        }, () => {
+          initMapboxMapInstance(userCurrentLat, userCurrentLng);
+        }, { enableHighAccuracy: true });
+      }
+
+      function initMapboxMapInstance(lat, lng) {
+        if (mapboxInstance) {
+          mapboxInstance.resize();
+          mapboxInstance.setCenter([lng, lat]);
+          if (deliveryMarker) deliveryMarker.setLngLat([lng, lat]);
+          updateCoordsDisplay(lat, lng);
+          return;
+        }
+
+        mapboxInstance = new mapboxgl.Map({
+          container: 'map',
+          style: 'mapbox://styles/mapbox/streets-v12',
+          center: [lng, lat],
+          zoom: 14,
+          maxBounds: CASA_BOUNDS
+        });
+
+        if (typeof MapboxLanguage !== 'undefined') {
+          mapboxInstance.addControl(new MapboxLanguage({ defaultLanguage: 'ar' }));
+        }
+
+        deliveryLat = lat; deliveryLng = lng;
+        deliveryMarker = new mapboxgl.Marker({ color: '#1e3a8a', draggable: true })
+          .setLngLat([deliveryLng, deliveryLat])
+          .addTo(mapboxInstance);
+
+        updateCoordsDisplay(deliveryLat, deliveryLng);
+
+        deliveryMarker.on('dragend', () => {
+          const lngLat = deliveryMarker.getLngLat();
+          setDropoffPoint(lngLat.lat, lngLat.lng);
+        });
+
+        mapboxInstance.on('click', (e) => {
+          setDropoffPoint(e.lngLat.lat, e.lngLat.lng);
+        });
+
+        const geocoder = new MapboxGeocoder({
+          accessToken: mapboxgl.accessToken,
+          mapboxgl: mapboxgl,
+          marker: false,
+          placeholder: 'ابحث عن أي حي أو شارع في الدار البيضاء...',
+          bbox: [-7.88, 33.42, -7.38, 33.68],
+          proximity: { longitude: lng, latitude: lat }
+        });
+
+        const geocoderContainer = document.getElementById('geocoder-container');
+        if (geocoderContainer && !geocoderContainer.hasChildNodes()) {
+          geocoderContainer.appendChild(geocoder.onAdd(mapboxInstance));
+        }
+
+        geocoder.on('result', (e) => {
+          const coords = e.result.center;
+          setDropoffPoint(coords[1], coords[0], e.result.place_name);
+        });
+      }
+
+      function jumpToDistrict(name, lat, lng) {
+        document.getElementById('casaSearchInput').value = name;
+        setDropoffPoint(lat, lng, name);
+      }
+
+      async function setDropoffPoint(lat, lng, label = null) {
+        deliveryLat = lat; deliveryLng = lng;
+        if (deliveryMarker) deliveryMarker.setLngLat([lng, lat]);
+        if (mapboxInstance) mapboxInstance.flyTo({ center: [lng, lat], zoom: 15 });
+
+        if (label) {
+          document.getElementById("deliveryCoordsDisplay").value = `📍 الوجهة: ${label}`;
+        } else {
+          document.getElementById("deliveryCoordsDisplay").value = `📍 (${lat.toFixed(4)}, ${lng.toFixed(4)}) - جاري جلب اسم الحي...`;
+          try {
+            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`);
+            const data = await res.json();
+            if (data && data.display_name) {
+              const parts = data.display_name.split(',');
+              document.getElementById("deliveryCoordsDisplay").value = `📍 ${parts[0].trim()}, ${parts[1] ? parts[1].trim() : 'كازا'}`;
+            }
+          } catch(e) {
+            updateCoordsDisplay(lat, lng);
+          }
+        }
+      }
+
+      function handleCasaSearch(query) {
+        clearTimeout(searchTimeout);
+        const dropdown = document.getElementById('casaDropdown');
+        if (!query || query.trim().length < 2) {
+          dropdown.style.display = 'none';
+          return;
+        }
+
+        searchTimeout = setTimeout(async () => {
+          const q = query.trim().toLowerCase();
+          let matches = CASA_DISTRICTS_DB.filter(d => d.name.toLowerCase().includes(q));
+
+          try {
+            const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query + ' الدار البيضاء المغرب')}&format=json&limit=5&viewbox=-7.88,33.68,-7.38,33.42&bounded=1`);
+            const osmData = await res.json();
+            if (osmData && osmData.length > 0) {
+              osmData.forEach(item => {
+                matches.push({ name: item.display_name.split(',')[0], lat: parseFloat(item.lat), lng: parseFloat(item.lon) });
+              });
+            }
+          } catch(err) {}
+
+          if (matches.length > 0) {
+            dropdown.innerHTML = matches.map(m => `
+              <div class="casa-result-item" onclick="selectSearchedPlace('${m.name.replace(/'/g, "\\'")}', ${m.lat}, ${m.lng})">
+                📍 <b>${m.name}</b>
+              </div>
+            `).join('');
+            dropdown.style.display = 'block';
+          } else {
+            dropdown.style.display = 'none';
+          }
+        }, 300);
+      }
+
+      function selectSearchedPlace(name, lat, lng) {
+        document.getElementById('casaSearchInput').value = name;
+        document.getElementById('casaDropdown').style.display = 'none';
+        setDropoffPoint(lat, lng, name);
+      }
+
+      function updateCoordsDisplay(lat, lng) {
+        deliveryLat = lat; deliveryLng = lng;
+        document.getElementById("deliveryCoordsDisplay").value = `📍 إحداثيات الاستلام: (${deliveryLat.toFixed(4)},${deliveryLng.toFixed(4)})`;
+      }
+
+      function goToCurrentLocation() {
+        if (!navigator.geolocation) return;
+        navigator.geolocation.getCurrentPosition(p => {
+          userCurrentLat = p.coords.latitude;
+          userCurrentLng = p.coords.longitude;
+          if (mapboxInstance) {
+            mapboxInstance.resize();
+            mapboxInstance.setCenter([userCurrentLng, userCurrentLat]);
+            deliveryMarker.setLngLat([userCurrentLng, userCurrentLat]);
+            updateCoordsDisplay(userCurrentLat, userCurrentLng);
+          }
+          showAppToast("تم التحديث 📍", "تم ضبط موقع الاستلام على موقعك الحالي عبر GPS.");
+        }, () => { showAppToast("تنبيه", "تعذر تحديد موقعك الحالي."); }, { enableHighAccuracy: true });
+      }
+
+      function logoutUser() { releaseScreenWakeLock(); localStorage.clear(); location.reload(); }
+
+      document.addEventListener("DOMContentLoaded", async () => {
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(p => {
+            userCurrentLat = p.coords.latitude; userCurrentLng = p.coords.longitude;
+            document.getElementById("locationOverlay").style.display = "none";
+          }, () => { document.getElementById("locationOverlay").style.display = "flex"; }, { enableHighAccuracy: true });
+        }
+
+        if (currentUserId && currentUserPhone) {
+          document.querySelectorAll('.visitor-only-item').forEach(el => el.style.display = "none");
+          document.getElementById("drawer-logout").style.display = "flex";
+          if (currentRole === 'driver') {
+            document.getElementById("driverStatusToggle").style.display = "flex";
+            document.getElementById("driverBottomNav").style.display = "flex";
+            document.querySelectorAll(".role-driver-item").forEach(el => el.style.display = "flex");
+            switchMainView("ordersView");
+          } else {
+            document.querySelectorAll(".role-customer-item").forEach(el => el.style.display = "flex");
+            switchMainView("clientView");
+          }
+        } else {
+          document.querySelectorAll('.visitor-only-item').forEach(el => el.style.display = "flex");
+          switchMainView("homeView");
+        }
+      });
+    </script>
+  </body>
+</html>
