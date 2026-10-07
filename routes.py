@@ -2,13 +2,7 @@ import httpx
 import requests
 from fastapi import APIRouter, HTTPException
 from database import supabase, get_address_from_coords, get_coords_from_address
-from models import (
-    OrderRequest,
-    AcceptOrderRequest,
-    DriverLocationUpdate,
-    RouteRequest,
-    WalletTopupRequest
-)
+from models import OrderRequest, AcceptOrderRequest, DriverLocationUpdate, RouteRequest, WalletTopupRequest
 
 router = APIRouter()
 
