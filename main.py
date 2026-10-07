@@ -1,7 +1,6 @@
 import os
 import sys
 import time
-import base64
 from typing import Optional, Dict, Any, List
 
 import httpx
@@ -12,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from supabase import create_client, Client
 
-app = FastAPI(title="Delivery Tracking & Routing API - FastAPI Backend")
+app = FastAPI(title="Delivery Tracking & Routing API - Casablanca")
 
 app.add_middleware(
     CORSMiddleware,
@@ -26,6 +25,21 @@ SUPABASE_URL = "https://cauujrnxtqswjzqhphyq.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNhdXVqcm54dHFzd2p6cWhwaHlxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4ODM0MTA0MywiZXhwIjoyMTAzOTE3MDQzfQ.17AG1uMHj14ZNVuzp56-9_Z2KYeG50Oo3k__kDbhUok"
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+# قراءة الملفات من مجلد templates بأمان
+TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), "templates")
+
+def get_template(filename: str) -> str:
+    path = os.path.join(TEMPLATES_DIR, filename)
+    if not os.path.exists(path):
+        # محاولة قراءة الملف من نفس المجلد في حال عدم استخدام مجلد فرعي
+        alt_path = os.path.join(os.path.dirname(__file__), filename)
+        if os.path.exists(alt_path):
+            with open(alt_path, "r", encoding="utf-8") as f:
+                return f.read()
+        raise HTTPException(status_code=404, detail=f"الملف {filename} غير موجود داخل مجلد templates")
+    with open(path, "r", encoding="utf-8") as f:
+        return f.read()
 
 class OrderRequest(BaseModel):
     pickup_lat: float
@@ -67,7 +81,7 @@ class WalletTopupRequest(BaseModel):
 def get_address_from_coords(lat, lng):
     try:
         url = f"https://nominatim.openstreetmap.org/reverse?lat={lat}&lon={lng}&format=json"
-        headers = {'User-Agent': 'DeliveryApp/1.0'}
+        headers = {'User-Agent': 'DeliveryAppCasablanca/1.0'}
         res = requests.get(url, headers=headers, timeout=3).json()
         return res.get('display_name', f"{lat}, {lng}")
     except Exception:
@@ -75,12 +89,9 @@ def get_address_from_coords(lat, lng):
 
 def get_coords_from_address(address_text):
     try:
-        if "الدار البيضاء" in address_text:
-            query = address_text
-        else:
-            query = address_text + ", الدار البيضاء, المغرب"
+        query = address_text if "الدار البيضاء" in address_text else address_text + ", الدار البيضاء, المغرب"
         url = "https://nominatim.openstreetmap.org/search?q=" + requests.utils.quote(query) + "&format=json&limit=1"
-        headers = {'User-Agent': 'DeliveryApp/1.0'}
+        headers = {'User-Agent': 'DeliveryAppCasablanca/1.0'}
         res = requests.get(url, headers=headers, timeout=3).json()
         if res and len(res) > 0:
             return float(res[0]['lat']), float(res[0]['lon'])
@@ -122,7 +133,7 @@ def create_order(order: OrderRequest):
         if not order.security_accepted:
             raise HTTPException(status_code=400, detail="الموافقة على الشروط الأمنية وحق التبليغ للشرطة إلزامية لإنشاء الطلب")
         if not order.recipient_phone or not order.recipient_phone_secondary:
-            raise HTTPException(status_code=400, detail="رقم هاتف المستلم الأول ورقم هاتف المستلم الثاني إلزاميان معاً لتأمين التسليم")
+            raise HTTPException(status_code=400, detail="رقما هاتف المستلم إلزاميان معاً لتأمين التسليم")
         if not order.pickup_lat or not order.pickup_lng:
             raise HTTPException(status_code=400, detail="موقع الاستلام عبر GPS غير متوفر")
             
@@ -140,7 +151,7 @@ def create_order(order: OrderRequest):
                     final_dropoff_lng = lng
                     dropoff_address = order.dropoff_address_text
                 else:
-                    raise HTTPException(status_code=400, detail="يرجى تحديد وجهة التسليم بدقة على الخريطة أو كتابة عنوان صحيح")
+                    raise HTTPException(status_code=400, detail="يرجى تحديد وجهة التسليم بدقة على الخريطة")
             else:
                 raise HTTPException(status_code=400, detail="الرجاء تحديد نقطة التسليم على الخريطة أولاً")
         else:
@@ -239,7 +250,6 @@ def accept_order(data: AcceptOrderRequest):
     except HTTPException:
         raise
     except Exception as e:
-        print("CRITICAL ERROR IN ACCEPT ORDER:", str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/update-driver-location")
@@ -258,21 +268,15 @@ def update_driver_location(data: DriverLocationUpdate):
     except HTTPException:
         raise
     except Exception as e:
-        print("CRITICAL ERROR IN UPDATE DRIVER LOCATION:", str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/wallet/topup")
 async def wallet_topup(data: WalletTopupRequest):
     try:
         if data.amount < 30:
-            raise HTTPException(status_code=400, detail="الحد الأدنى للشحن عبر التحويل البنكي CIH هو 30 درهم")
+            raise HTTPException(status_code=400, detail="الحد الأدنى للشحن هو 30 درهم")
             
-        bonus = 0.0
-        if data.amount >= 100:
-            bonus = 10.0
-        elif data.amount >= 50:
-            bonus = 4.0
-            
+        bonus = 10.0 if data.amount >= 100 else (4.0 if data.amount >= 50 else 0.0)
         total_credited = data.amount + bonus
         
         topup_data = {
@@ -285,62 +289,21 @@ async def wallet_topup(data: WalletTopupRequest):
         }
         
         db_res = supabase.table("wallet_topups").insert(topup_data).execute()
-        
-        return {"status": "success", "message": "تم إرسال طلب الشحن بنجاح في انتظار مراجعة الأدمن", "data": db_res.data}
+        return {"status": "success", "message": "تم إرسال طلب الشحن بنجاح", "data": db_res.data}
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# ==========================================
-# واجهة تطبيق التوصيل الأساسية (للزبون والموصل)
-# ==========================================
 @app.get("/", response_class=HTMLResponse)
 def serve_frontend():
-    html_content = """<!DOCTYPE html>
-<html lang="ar" dir="rtl" id="htmlRoot">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title id="appMetaTitle">نتسخر ليك...كازا - خدمة التوصيل الذكية</title>
+    return HTMLResponse(content=get_template("index.html"))
 
-    <meta name="theme-color" content="#10b981" />
-    <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    
-    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+@app.get("/admin", response_class=HTMLResponse)
+def serve_admin():
+    return HTMLResponse(content=get_template("admin.html"))
 
-    <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
-    <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />
-
-    <script src="https://unpkg.com/@mapbox/mapbox-gl-language@1.0.1/index.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.8/dist/umd/supabase.min.js"></script>
-
-    <style>
-      :root {
-        --primary: #10b981; --primary-dark: #059669; --bg-dark: #0f172a; --card-bg: #1e293b;
-        --text-main: #f8fafc; --text-muted: #94a3b8; --border: rgba(255, 255, 255, 0.1);
-        --danger: #ef4444; --warning: #f59e0b; --accent-green: #a3e635;
-      }
-      * { box-sizing: border-box; margin: 0; padding: 0; font-family: "Tajawal", sans-serif; text-rendering: optimizeLegibility; }
-      body {
-        background: var(--bg-dark); color: var(--text-main); display: flex;
-        justify-content: center; min-height: 100vh; overflow-y: auto; -webkit-tap-highlight-color: transparent;
-        direction: rtl; text-align: right;
-      }
-      .app-container {
-        width: 100%; max-width: 480px; min-height: 100vh; background: var(--bg-dark);
-        position: relative; display: flex; flex-direction: column; padding-bottom: 70px;
-      }
-      .offline-banner { display: none; background: var(--danger); color: white; text-align: center; font-size: 11px; font-weight: bold; padding: 6px; z-index: 1002; }
-      .location-overlay {
-        position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: var(--bg-dark);
-        z-index: 99999; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 30px; text-align: center;
-      }
-      .location-icon-box {
-        width: 100px; height: 100px; background: rgba(16, 185, 129, 0.1); border: 2px solid var(--primary);
-        border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 45px;
-        margin-bottom: 20px; box-shadow: 0 0 25px rgba(16, 185, 129, 0.3); animation: pulse 2s infinite;
-      }
-      @keyframes pulse {
-        0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
