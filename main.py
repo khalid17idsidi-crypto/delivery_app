@@ -1956,4 +1956,103 @@ def serve_admin_dashboard():
                     .from('orders')
                     .select('*, customer:customer_id(full_name, phone_number), driver:driver_id(full_name, phone_number)')
                     .or(`recipient_phone.ilike.%${queryText}%,id.ilike.%${queryText}%`)
-                    .order('created_at', { ascending
+                    .order('created_at', { ascending if (item.setting_key === 'min_fare') document.getElementById('settingMinPrice').value = item.setting_value;
+                        if (item.setting_key === 'price_per_km') document.getElementById('settingPricePerKm').value = item.setting_value;
+                        if (item.setting_key === 'fuel_multiplier') document.getElementById('settingFuelMultiplier').value = item.setting_value;
+                    });
+                }
+            } catch (err) {}
+        }
+
+        async function saveSettings() {
+            const minFare = document.getElementById('settingMinPrice').value;
+            const pricePerKm = document.getElementById('settingPricePerKm').value;
+            const fuelMultiplier = document.getElementById('settingFuelMultiplier').value;
+
+            try {
+                await supabaseClient.from('app_settings').upsert([
+                    { setting_key: 'min_fare', setting_value: minFare },
+                    { setting_key: 'price_per_km', setting_value: pricePerKm },
+                    { setting_key: 'fuel_multiplier', setting_value: fuelMultiplier }
+                ]);
+                alert("💰 تم حفظ إعدادات التسعير بنجاح!");
+            } catch (err) { alert("خطأ: " + err.message); }
+        }
+
+        function listenRealtimeUpdates() {
+            supabaseClient.channel('admin_realtime_all')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => { loadDashboardStats(); loadPendingDrivers(); loadAllUsers(); })
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => { loadDashboardStats(); loadAdminOrdersMonitor(); })
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'wallet_topups' }, () => { loadAdminWalletQueue(); })
+                .subscribe();
+        }
+
+        async function loadDashboardStats() {
+            const { count: usersCount } = await supabaseClient.from('profiles').select('*', { count: 'exact', head: true });
+            const { count: pendingCount } = await supabaseClient.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'driver').eq('verification_status', 'pending_review');
+            const { count: ordersCount } = await supabaseClient.from('orders').select('*', { count: 'exact', head: true });
+            
+            const todayStr = new Date().toISOString().split('T')[0];
+            const { data: visitorData } = await supabaseClient.from('app_settings').select('setting_value').eq('setting_key', `daily_visitors_${todayStr}`).single();
+            const dailyVisitorsCount = visitorData ? visitorData.setting_value : '1';
+
+            document.getElementById('statTotalUsers').innerText = usersCount || 0;
+            document.getElementById('statPendingDrivers').innerText = pendingCount || 0;
+            document.getElementById('statTotalOrders').innerText = ordersCount || 0;
+            document.getElementById('statDailyVisitors').innerText = dailyVisitorsCount;
+        }
+
+        async function loadPendingDrivers() {
+            const { data: drivers } = await supabaseClient.from('profiles').select('*').eq('role', 'driver');
+            const tbody = document.getElementById('pendingDriversTable');
+            if (!drivers || drivers.length === 0) { tbody.innerHTML = '<tr><td colspan="6">لا توجد طلبات توثيق معلقة.</td></tr>'; return; }
+
+            tbody.innerHTML = drivers.map(d => `
+                <tr>
+                    <td>${d.full_name || 'بدون اسم'}</td>
+                    <td>${d.phone_number || '-'}</td>
+                    <td><img src="${d.cin_front_url || ''}" class="doc-img" onclick="window.open(this.src)" onerror="this.src='https://via.placeholder.com/50'"></td>
+                    <td><img src="${d.registration_card_url || ''}" class="doc-img" onclick="window.open(this.src)" onerror="this.src='https://via.placeholder.com/50'"></td>
+                    <td><img src="${d.avatar_url || ''}" class="doc-img" onclick="window.open(this.src)" onerror="this.src='https://via.placeholder.com/50'"></td>
+                    <td><button class="btn-action btn-approve" onclick="updateDriverStatus('${d.id}', 'verified')">قبول وتفعيل</button></td>
+                </tr>
+            `).join('');
+        }
+
+        async function updateDriverStatus(userId, status) {
+            await supabaseClient.from('profiles').update({ verification_status: status }).eq('id', userId);
+            alert("تم تحديث حالة الموصل!");
+            loadPendingDrivers();
+        }
+
+        async function loadAllUsers() {
+            const { data: users } = await supabaseClient.from('profiles').select('*');
+            const tbody = document.getElementById('allUsersTable');
+            if (!users || users.length === 0) { tbody.innerHTML = '<tr><td colspan="5">لا توجد حسابات مسجلة.</td></tr>'; return; }
+            
+            tbody.innerHTML = users.map(u => `
+                <tr>
+                    <td>${u.full_name || 'بدون اسم'}</td>
+                    <td>${u.phone_number || '-'}</td>
+                    <td>${u.role === 'driver' ? 'موصل 🛵' : 'زبون 🙋‍♂️'}</td>
+                    <td>${u.verification_status || 'نشط'}</td>
+                    <td><button class="btn-action btn-block" onclick="toggleUserBlock('${u.id}', '${u.verification_status}')">تبديل الحالة</button></td>
+                </tr>
+            `).join('');
+        }
+
+        async function toggleUserBlock(userId, currentStatus) {
+            const newStatus = (currentStatus === 'blocked') ? 'verified' : 'blocked';
+            await supabaseClient.from('profiles').update({ verification_status: newStatus }).eq('id', userId);
+            loadAllUsers();
+        }
+    </script>
+</body>
+</html>
+"""
+    return HTMLResponse(content=admin_html_content)
+
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
