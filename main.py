@@ -144,4 +144,203 @@ def create_order(order: OrderRequest):
             else:
                 raise HTTPException(status_code=400, detail="الرجاء تحديد نقطة التسليم على الخريطة أولاً")
         else:
-            dropoff_address = get_address_from_coords(final_dropoff_lat, final_
+            dropoff_address = get_address_from_coords(final_dropoff_lat, final_dropoff_lng)
+
+        osrm_url = f"http://router.project-osrm.org/route/v1/driving/{order.pickup_lng},{order.pickup_lat};{final_dropoff_lng},{final_dropoff_lat}?overview=full&geometries=geojson"
+        
+        distance_km = 2.0
+        route_geometry = {
+            "type": "LineString",
+            "coordinates": [
+                [order.pickup_lng, order.pickup_lat],
+                [final_dropoff_lng, final_dropoff_lat]
+            ]
+        }
+
+        try:
+            response = requests.get(osrm_url, timeout=5)
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("routes"):
+                    distance_meters = data['routes'][0]['distance']
+                    distance_km = round(distance_meters / 1000.0, 2)
+                    route_geometry = data['routes'][0]['geometry']
+        except Exception:
+            pass
+        
+        if distance_km < 3.0:
+            total_price = 20.0
+        elif 3.0 <= distance_km <= 9.0:
+            total_price = 25.0
+        elif 9.0 < distance_km <= 12.0:
+            total_price = 30.0
+        else:
+            total_price = 30.0 + ((distance_km - 12.0) * 2.5)
+            
+        total_price = round(total_price, 2)
+        
+        order_data = {
+            "customer_id": order.user_id,
+            "customer_name": order.customer_name,
+            "customer_phone": order.customer_phone,
+            "recipient_phone": order.recipient_phone,
+            "recipient_phone_secondary": order.recipient_phone_secondary,
+            "package_type": order.package_type,
+            "notes": order.notes,
+            "pickup_address": pickup_address,
+            "dropoff_address": dropoff_address,
+            "pickup_lat": order.pickup_lat,
+            "pickup_lng": order.pickup_lng,
+            "dropoff_lat": final_dropoff_lat,
+            "dropoff_lng": final_dropoff_lng,
+            "distance_km": distance_km,
+            "price_mad": total_price,
+            "status": "pending",
+            "route_path": route_geometry
+        }
+        
+        db_response = supabase.table("orders").insert(order_data).execute()
+        
+        return {
+            "status": "success",
+            "message": "تم حساب المسار وتخزين الطلب بنجاح",
+            "data": {
+                "distance_km": distance_km,
+                "price_mad": total_price,
+                "pickup_address": pickup_address,
+                "dropoff_address": dropoff_address,
+                "route_path": route_geometry,
+                "order_details": db_response.data
+            }
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print("CRITICAL ERROR IN CREATE ORDER:", str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/accept-order")
+def accept_order(data: AcceptOrderRequest):
+    try:
+        the_driver_id = data.driver_id or data.courier_id
+        if not the_driver_id:
+            raise HTTPException(status_code=400, detail="معرف الموصل مفقود")
+
+        db_response = supabase.table("orders").update({
+            "status": "assigned",
+            "driver_id": the_driver_id
+        }).eq("id", data.order_id).execute()
+        
+        return {
+            "status": "success",
+            "message": "تم قبول الطلب بنجاح",
+            "data": db_response.data
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print("CRITICAL ERROR IN ACCEPT ORDER:", str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/update-driver-location")
+def update_driver_location(data: DriverLocationUpdate):
+    try:
+        db_response = supabase.table("orders").update({
+            "driver_lat": data.lat,
+            "driver_lng": data.lng
+        }).eq("id", data.order_id).execute()
+        
+        return {
+            "status": "success",
+            "message": "تم تحديث موقع الموصل بنجاح",
+            "data": db_response.data
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print("CRITICAL ERROR IN UPDATE DRIVER LOCATION:", str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/wallet/topup")
+async def wallet_topup(data: WalletTopupRequest):
+    try:
+        if data.amount < 30:
+            raise HTTPException(status_code=400, detail="الحد الأدنى للشحن عبر التحويل البنكي CIH هو 30 درهم")
+            
+        bonus = 0.0
+        if data.amount >= 100:
+            bonus = 10.0
+        elif data.amount >= 50:
+            bonus = 4.0
+            
+        total_credited = data.amount + bonus
+        
+        topup_data = {
+            "driver_id": data.user_id,
+            "amount": data.amount,
+            "bonus": bonus,
+            "total_credited": total_credited,
+            "receipt_url": data.receipt_url,
+            "status": "pending"
+        }
+        
+        db_res = supabase.table("wallet_topups").insert(topup_data).execute()
+        
+        return {"status": "success", "message": "تم إرسال طلب الشحن بنجاح في انتظار مراجعة الأدمن", "data": db_res.data}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ==========================================
+# واجهة تطبيق التوصيل الأساسية (للزبون والموصل)
+# ==========================================
+@app.get("/", response_class=HTMLResponse)
+def serve_frontend():
+    html_content = """<!DOCTYPE html>
+<html lang="ar" dir="rtl" id="htmlRoot">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title id="appMetaTitle">نتسخر ليك...كازا - خدمة التوصيل الذكية</title>
+
+    <meta name="theme-color" content="#10b981" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />
+
+    <script src="https://unpkg.com/@mapbox/mapbox-gl-language@1.0.1/index.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.8/dist/umd/supabase.min.js"></script>
+
+    <style>
+      :root {
+        --primary: #10b981; --primary-dark: #059669; --bg-dark: #0f172a; --card-bg: #1e293b;
+        --text-main: #f8fafc; --text-muted: #94a3b8; --border: rgba(255, 255, 255, 0.1);
+        --danger: #ef4444; --warning: #f59e0b; --accent-green: #a3e635;
+      }
+      * { box-sizing: border-box; margin: 0; padding: 0; font-family: "Tajawal", sans-serif; text-rendering: optimizeLegibility; }
+      body {
+        background: var(--bg-dark); color: var(--text-main); display: flex;
+        justify-content: center; min-height: 100vh; overflow-y: auto; -webkit-tap-highlight-color: transparent;
+        direction: rtl; text-align: right;
+      }
+      .app-container {
+        width: 100%; max-width: 480px; min-height: 100vh; background: var(--bg-dark);
+        position: relative; display: flex; flex-direction: column; padding-bottom: 70px;
+      }
+      .offline-banner { display: none; background: var(--danger); color: white; text-align: center; font-size: 11px; font-weight: bold; padding: 6px; z-index: 1002; }
+      .location-overlay {
+        position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: var(--bg-dark);
+        z-index: 99999; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 30px; text-align: center;
+      }
+      .location-icon-box {
+        width: 100px; height: 100px; background: rgba(16, 185, 129, 0.1); border: 2px solid var(--primary);
+        border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 45px;
+        margin-bottom: 20px; box-shadow: 0 0 25px rgba(16, 185, 129, 0.3); animation: pulse 2s infinite;
+      }
+      @keyframes pulse {
+        0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185
