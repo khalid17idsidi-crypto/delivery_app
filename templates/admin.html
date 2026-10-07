@@ -1,100 +1,324 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>لوحة تحكم الأدمين - التوصيل</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-gray-100 font-sans p-4 md:p-8">
-  <div class="max-w-5xl mx-auto space-y-6">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لوحة التحكم الإدارية الاحترافية - نتسخر ليك في كازا</title>
     
-    <!-- رأس الصفحة والرصيد -->
-    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex flex-col md:flex-row justify-between items-center gap-4">
-      <div>
-        <h1 class="text-2xl font-bold text-gray-800">📊 لوحة تحكم إدارة الطلبيات</h1>
-        <p class="text-sm text-gray-500">متابعة الطلبات وتحديث حالات التوصيل</p>
-      </div>
-      <div class="bg-blue-50 border border-blue-200 px-6 py-3 rounded-xl text-center">
-        <span class="text-xs text-blue-600 font-semibold block">إجمالي رصيد المحفظة</span>
-        <span id="walletBalance" class="text-2xl font-bold text-blue-700">0.00 د.م</span>
-      </div>
-    </div>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.8/dist/umd/supabase.min.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-    <!-- جدول الطلبيات -->
-    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-      <div class="p-4 border-b border-gray-100 flex justify-between items-center">
-        <h2 class="font-bold text-gray-700 text-lg">قائمة الطلبيات الحالية</h2>
-        <button onclick="fetchOrders()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm px-4 py-2 rounded-lg transition">
-          🔄 تحديث
-        </button>
-      </div>
-      
-      <div class="overflow-x-auto">
-        <table class="w-full text-right border-collapse">
-          <thead>
-            <tr class="bg-gray-50 text-gray-600 text-xs uppercase border-b border-gray-100">
-              <th class="p-3">#</th>
-              <th class="p-3">الزبون</th>
-              <th class="p-3">الهاتف</th>
-              <th class="p-3">من</th>
-              <th class="p-3">إلى</th>
-              <th class="p-3">المبلغ</th>
-              <th class="p-3">الحالة</th>
-            </tr>
-          </thead>
-          <tbody id="ordersTableBody" class="text-sm divide-y divide-gray-100 text-gray-700">
-            <tr>
-              <td colspan="7" class="text-center p-4 text-gray-400">جاري تحميل البيانات...</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-  <script>
-    async function fetchOrders() {
-      try {
-        const res = await fetch('/orders');
-        const orders = await res.json();
-        const tbody = document.getElementById('ordersTableBody');
-        tbody.innerHTML = '';
-
-        if (!orders || orders.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="7" class="text-center p-4 text-gray-400">لا توجد طلبيات مسجلة حالياً.</td></tr>';
-          return;
+    <style>
+        :root {
+            --primary: #10b981;
+            --bg-dark: #0f172a;
+            --card-bg: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border: rgba(255, 255, 255, 0.1);
+            --danger: #ef4444;
+            --warning: #f59e0b;
         }
 
-        let total = 0;
-        orders.forEach((o, index) => {
-          total += parseFloat(o.price || 0);
-          const tr = document.createElement('tr');
-          tr.className = "hover:bg-gray-50 transition";
-          tr.innerHTML = `
-            <td class="p-3 font-semibold">${index + 1}</td>
-            <td class="p-3">${o.customer_name || '-'}</td>
-            <td class="p-3">${o.customer_phone || '-'}</td>
-            <td class="p-3 text-xs text-gray-500">${o.pickup_address || '-'}</td>
-            <td class="p-3 text-xs text-gray-500">${o.delivery_address || '-'}</td>
-            <td class="p-3 font-bold text-gray-800">${o.price} د.م</td>
-            <td class="p-3">
-              <span class="px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800">
-                ${o.status || 'قيد الانتظار'}
-              </span>
-            </td>
-          `;
-          tbody.appendChild(tr);
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Tajawal', sans-serif; }
+        html { scroll-behavior: smooth; }
+        body { background: var(--bg-dark); color: var(--text-main); display: flex; min-height: 100vh; overflow-x: hidden; }
+
+        .admin-sidebar { width: 260px; background: var(--card-bg); border-left: 1px solid var(--border); display: flex; flex-direction: column; position: fixed; top: 0; bottom: 0; right: 0; z-index: 1000; padding: 20px; overflow-y: auto; }
+        .sidebar-brand { font-size: 16px; font-weight: 900; color: var(--primary); margin-bottom: 30px; text-align: center; border-bottom: 1px solid var(--border); padding-bottom: 15px; }
+        .sidebar-menu { display: flex; flex-direction: column; gap: 8px; list-style: none; }
+        .sidebar-item button { width: 100%; display: flex; align-items: center; gap: 10px; padding: 12px 14px; color: var(--text-muted); text-decoration: none; border-radius: 8px; font-size: 13px; font-weight: 700; transition: all 0.2s; background: transparent; border: none; cursor: pointer; text-align: right; }
+        .sidebar-item button:hover, .sidebar-item button.active { background: rgba(16, 185, 129, 0.15); color: var(--primary); }
+
+        .admin-main { flex: 1; margin-right: 260px; padding: 30px; max-width: calc(100% - 260px); }
+        header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 15px; margin-bottom: 30px; }
+        h1 { color: var(--primary); font-size: 20px; }
+
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 35px; }
+        .stat-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 20px; text-align: center; }
+        .stat-card h3 { font-size: 12px; color: var(--text-muted); margin-bottom: 5px; }
+        .stat-card p { font-size: 22px; font-weight: 900; color: var(--primary); }
+
+        .admin-section { display: none; background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 35px; animation: fadeIn 0.3s ease-in-out; }
+        .admin-section.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+        .admin-section h2 { font-size: 15px; color: var(--primary); margin-bottom: 15px; border-bottom: 1px solid var(--border); padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+
+        #adminLiveMap { width: 100%; height: 400px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 10px; }
+
+        table { width: 100%; border-collapse: collapse; font-size: 12px; text-align: right; }
+        th, td { padding: 12px 10px; border-bottom: 1px solid var(--border); }
+        th { color: var(--text-muted); }
+
+        .btn-action { padding: 6px 12px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 11px; margin-left: 4px; text-decoration: none; display: inline-block; }
+        .btn-approve { background: var(--primary); color: white; }
+        .btn-reject { background: var(--danger); color: white; }
+        .btn-block { background: var(--warning); color: black; }
+
+        .alert-row { background: rgba(239, 68, 68, 0.08); }
+        .signal-badge {
+            display: inline-flex; align-items: center; gap: 5px;
+            background: rgba(239, 68, 68, 0.2); color: #fca5a5;
+            padding: 4px 8px; border-radius: 6px; font-size: 10px; font-weight: bold;
+            border: 1px solid var(--danger); animation: blinkSignal 1.2s infinite;
+        }
+        @keyframes blinkSignal { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
+
+        .doc-img { width: 50px; height: 50px; object-fit: cover; border-radius: 6px; cursor: pointer; border: 1px solid var(--border); }
+        .field-inline { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+        .field-inline input, .field-inline textarea { padding: 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-dark); color: white; }
+
+        .winner-card {
+            background: rgba(245, 158, 11, 0.05); border: 1px dashed var(--warning);
+            border-radius: 12px; padding: 14px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;
+        }
+        .winner-info h4 { color: var(--warning); font-size: 13px; margin-bottom: 4px; }
+        .winner-info p { font-size: 11px; color: var(--text-muted); margin-bottom: 2px; }
+        .badge-prize { background: rgba(245, 158, 11, 0.2); color: var(--warning); padding: 3px 8px; border-radius: 6px; font-size: 10px; font-weight: bold; display: inline-block; margin-top: 4px; }
+        .indrive-order-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+    </style>
+</head>
+<body>
+
+    <aside class="admin-sidebar">
+        <div class="sidebar-brand">🛡️ لوحة الإدارة العليا</div>
+        <ul class="sidebar-menu">
+            <li class="sidebar-item"><button onclick="switchAdminTab('statsSection', this)" class="active">📊 نظرة عامة والإحصائيات</button></li>
+            <li class="sidebar-item"><button onclick="switchAdminTab('walletAdminSection', this)">💳 طلبات الشحن والتحويلات</button></li>
+            <li class="sidebar-item"><button onclick="switchAdminTab('promoAdminSection', this)">📢 إدارة لوحة الإعلانات</button></li>
+            <li class="sidebar-item"><button onclick="switchAdminTab('complaintSection', this)">🔍 شبكة الأمان والشكاوى</button></li>
+            <li class="sidebar-item"><button onclick="switchAdminTab('winnersSection', this)">🏆 الفائزون بمسابقة الشهر</button></li>
+            <li class="sidebar-item"><button onclick="switchAdminTab('ordersSection', this)">🔴 مراقبة الطلبات المعلقة</button></li>
+            <li class="sidebar-item"><button onclick="switchAdminTab('mapSection', this)">🗺 خريطة تتبع الموصلين</button></li>
+            <li class="sidebar-item"><button onclick="switchAdminTab('settingsSection', this)">💰 التسعير والعمولات</button></li>
+            <li class="sidebar-item"><button onclick="switchAdminTab('driversSection', this)">📝 وثائق الموصلين</button></li>
+            <li class="sidebar-item"><button onclick="switchAdminTab('usersSection', this)">👥 إدارة وحظر الحسابات</button></li>
+        </ul>
+    </aside>
+
+    <main class="admin-main">
+        <header>
+            <h1>⚙️ لوحة التحكم والإدارة الرئيسية الاحترافية</h1>
+            <button class="btn-action btn-reject" onclick="location.reload()">🔄 تحديث البيانات</button>
+        </header>
+
+        <div class="admin-section active" id="statsSection">
+            <h2>📊 نظرة عامة والإحصائيات النظام</h2>
+            <div class="stats-grid">
+                <div class="stat-card"><h3>إجمالي المستخدمين</h3><p id="statTotalUsers">0</p></div>
+                <div class="stat-card"><h3>الموصلين النشطين (Online)</h3><p id="statOnlineDrivers" style="color:var(--primary);">0</p></div>
+                <div class="stat-card"><h3>الموصلين المعلقين</h3><p id="statPendingDrivers" style="color:var(--warning);">0</p></div>
+                <div class="stat-card"><h3>إجمالي الطلبات</h3><p id="statTotalOrders">0</p></div>
+                <div class="stat-card"><h3>👥 الزائرون اليوم</h3><p id="statDailyVisitors" style="color:#38bdf8;">0</p></div>
+            </div>
+        </div>
+
+        <div class="admin-section" id="walletAdminSection">
+            <h2>💳 اعتماد وشحن المحافظ</h2>
+            <div id="adminTopupsContainer"><p style="font-size: 11px; color: var(--text-muted);">جاري تحميل طلبات الشحن...</p></div>
+        </div>
+
+        <div class="admin-section" id="promoAdminSection">
+            <h2>📢 إدارة الإعلانات والمسابقات</h2>
+            <div class="field-inline" style="flex-direction: column; align-items: stretch;">
+                <input type="text" id="adminPromoTitle" placeholder="عنوان الإعلان" style="margin-bottom: 8px;">
+                <textarea id="adminPromoText" rows="3" placeholder="نص الإعلان..."></textarea>
+                <button class="btn-action btn-approve" onclick="savePromoAnnouncement()">💾 نشر وتحديث</button>
+            </div>
+        </div>
+
+        <div class="admin-section" id="complaintSection">
+            <h2>🔍 شبكة الأمان والشكاوى</h2>
+            <div class="field-inline">
+                <input type="text" id="complaintSearchInput" placeholder="أدخل الهاتف أو ID الطلب..." style="flex:1;">
+                <button class="btn-action btn-approve" onclick="adminInvestigateComplaint()">بحث</button>
+            </div>
+            <div id="complaintResultContainer" style="margin-top: 15px;"></div>
+        </div>
+
+        <div class="admin-section" id="winnersSection">
+            <h2>🏆 فائزو مسابقة الشهر (20 طلبة ناجحة)</h2>
+            <div id="winnersListContainer"></div>
+        </div>
+
+        <div class="admin-section" id="ordersSection">
+            <h2>
+                <span>🔴 مراقبة الطلبات المعلقة</span>
+                <button class="btn-action btn-reject" onclick="adminDeleteAllOrders()">🗑️ إزالة جميع الطلبيات</button>
+            </h2>
+            <table>
+                <thead><tr><th>رقم الطلب</th><th>الزبون</th><th>الموصل</th><th>الحالة</th><th>الإجراء</th></tr></thead>
+                <tbody id="adminOrdersTable"><tr><td colspan="5">تحميل...</td></tr></tbody>
+            </table>
+        </div>
+
+        <div class="admin-section" id="mapSection">
+            <h2>🗺️ خريطة تتبع الموصلين في كازا</h2>
+            <div id="adminLiveMap"></div>
+        </div>
+
+        <div class="admin-section" id="settingsSection">
+            <h2>💰 إعدادات التسعير والعمولات</h2>
+            <div class="field-inline" style="flex-direction: column; align-items: stretch; gap: 10px;">
+                <div><label>أدنى سعر (MAD):</label><input type="number" id="settingMinPrice" style="width: 100%;"></div>
+                <div><label>سعر الكيلومتر (MAD):</label><input type="number" id="settingPricePerKm" step="0.25" style="width: 100%;"></div>
+                <button class="btn-action btn-approve" onclick="saveSettings()">💾 حفظ الإعدادات</button>
+            </div>
+        </div>
+
+        <div class="admin-section" id="driversSection">
+            <h2>📝 وثائق الموصلين (قيد المراجعة)</h2>
+            <table>
+                <thead><tr><th>الاسم</th><th>الهاتف</th><th>CIN</th><th>Carte Grise</th><th>الصورة</th><th>الإجراء</th></tr></thead>
+                <tbody id="pendingDriversTable"><tr><td colspan="6">تحميل...</td></tr></tbody>
+            </table>
+        </div>
+
+        <div class="admin-section" id="usersSection">
+            <h2>👥 إدارة الحسابات</h2>
+            <table>
+                <thead><tr><th>الاسم</th><th>الهاتف</th><th>الصفة</th><th>الحالة</th><th>الإجراء</th></tr></thead>
+                <tbody id="allUsersTable"><tr><td colspan="5">تحميل...</td></tr></tbody>
+            </table>
+        </div>
+    </main>
+
+    <script>
+        const SUPABASE_URL = "https://cauujrnxtqswjzqhphyq.supabase.co";
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNhdXVqcm54dHFzd2p6cWhwaHlxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzNDEwNDMsImV4cCI6MjEwMzkxNzA0M30.xIwYyOcOaH-3VEkfuf2T73tHMRn3oAL2_RjNNPueQKU";
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        let adminMap = null;
+        let driverMarkers = {};
+
+        document.addEventListener("DOMContentLoaded", () => {
+            initAdminMap();
+            loadDashboardStats();
+            loadAdminWalletQueue();
+            loadAdminOrdersMonitor();
+            loadPendingDrivers();
+            loadAllUsers();
         });
 
-        document.getElementById('walletBalance').innerText = total.toFixed(2) + ' د.م';
-      } catch (err) {
-        console.error(err);
-      }
-    }
+        function switchAdminTab(sectionId, btnElement) {
+            document.querySelectorAll('.admin-section').forEach(sec => sec.classList.remove('active'));
+            document.querySelectorAll('.sidebar-menu button').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(sectionId).classList.add('active');
+            btnElement.classList.add('active');
+            if (sectionId === 'mapSection' && adminMap) {
+                setTimeout(() => { adminMap.invalidateSize(); }, 200);
+            }
+        }
 
-    // تحميل البيانات أول ما تفتح الصفحة
-    fetchOrders();
-  </script>
+        function initAdminMap() {
+            adminMap = L.map('adminLiveMap').setView([33.5731, -7.5898], 12);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(adminMap);
+        }
+
+        async function loadDashboardStats() {
+            const { count: usersCount } = await supabaseClient.from('profiles').select('*', { count: 'exact', head: true });
+            const { count: pendingCount } = await supabaseClient.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'driver').eq('verification_status', 'pending_review');
+            const { count: ordersCount } = await supabaseClient.from('orders').select('*', { count: 'exact', head: true });
+            document.getElementById('statTotalUsers').innerText = usersCount || 0;
+            document.getElementById('statPendingDrivers').innerText = pendingCount || 0;
+            document.getElementById('statTotalOrders').innerText = ordersCount || 0;
+        }
+
+        async function loadAdminWalletQueue() {
+            const container = document.getElementById("adminTopupsContainer");
+            const { data: topups } = await supabaseClient.from('wallet_topups').select('*, profiles:driver_id(full_name, phone_number)').eq('status', 'pending');
+            if (!topups || topups.length === 0) {
+                container.innerHTML = `<p style="font-size: 11px; color: var(--text-muted); text-align: center; padding: 15px;">لا توجد طلبات شحن معلقة حالياً.</p>`;
+                return;
+            }
+            container.innerHTML = topups.map(item => `
+                <div class="indrive-order-card">
+                    <div>المجموع: ${item.total_credited} MAD | المبلغ: ${item.amount} MAD</div>
+                    <div>الموصل: ${item.profiles ? item.profiles.full_name : 'غير محدد'}</div>
+                    <button class="btn-action btn-approve" onclick="adminApproveTopup('${item.id}', '${item.driver_id}', ${item.total_credited})">تفعيل</button>
+                </div>
+            `).join('');
+        }
+
+        async function adminApproveTopup(topupId, driverId, totalCredited) {
+            const { data: profile } = await supabaseClient.from('profiles').select('wallet_balance').eq('id', driverId).single();
+            const newBalance = (parseFloat(profile ? profile.wallet_balance : 0) || 0) + parseFloat(totalCredited);
+            await supabaseClient.from('profiles').update({ wallet_balance: newBalance }).eq('id', driverId);
+            await supabaseClient.from('wallet_topups').update({ status: 'approved' }).eq('id', topupId);
+            alert("تم تفعيل الشحن!");
+            loadAdminWalletQueue();
+        }
+
+        async function loadAdminOrdersMonitor() {
+            const { data: orders } = await supabaseClient.from('orders').select('*').order('id', { ascending: false });
+            const tbody = document.getElementById('adminOrdersTable');
+            if (!orders || orders.length === 0) { tbody.innerHTML = '<tr><td colspan="5">لا توجد طلبات.</td></tr>'; return; }
+            tbody.innerHTML = orders.map(ord => `
+                <tr>
+                    <td>#${ord.id.substring(0, 6)}</td>
+                    <td>${ord.customer_name || 'زبون'}</td>
+                    <td>${ord.driver_id ? 'موصل مسند' : 'في الانتظار'}</td>
+                    <td>${ord.status}</td>
+                    <td><button class="btn-action btn-reject" onclick="adminDeleteOrder('${ord.id}')">حذف</button></td>
+                </tr>
+            `).join('');
+        }
+
+        async function adminDeleteOrder(orderId) {
+            await supabaseClient.from('orders').delete().eq('id', orderId);
+            loadAdminOrdersMonitor();
+            loadDashboardStats();
+        }
+
+        async function adminDeleteAllOrders() {
+            if (!confirm("هل أنت متأكد من حذف جميع الطلبات؟")) return;
+            await supabaseClient.from('orders').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+            loadAdminOrdersMonitor();
+            loadDashboardStats();
+        }
+
+        async function loadPendingDrivers() {
+            const { data: drivers } = await supabaseClient.from('profiles').select('*').eq('role', 'driver');
+            const tbody = document.getElementById('pendingDriversTable');
+            if (!drivers || drivers.length === 0) { tbody.innerHTML = '<tr><td colspan="6">لا يوجد موصلون.</td></tr>'; return; }
+            tbody.innerHTML = drivers.map(d => `
+                <tr>
+                    <td>${d.full_name || 'بدون اسم'}</td>
+                    <td>${d.phone_number || '-'}</td>
+                    <td>-</td><td>-</td><td>-</td>
+                    <td><button class="btn-action btn-approve" onclick="updateDriverStatus('${d.id}', 'verified')">قبول</button></td>
+                </tr>
+            `).join('');
+        }
+
+        async function updateDriverStatus(userId, status) {
+            await supabaseClient.from('profiles').update({ verification_status: status }).eq('id', userId);
+            loadPendingDrivers();
+        }
+
+        async function loadAllUsers() {
+            const { data: users } = await supabaseClient.from('profiles').select('*');
+            const tbody = document.getElementById('allUsersTable');
+            if (!users || users.length === 0) { tbody.innerHTML = '<tr><td colspan="5">لا يوجد مستخدمون.</td></tr>'; return; }
+            tbody.innerHTML = users.map(u => `
+                <tr>
+                    <td>${u.full_name || 'بدون اسم'}</td>
+                    <td>${u.phone_number || '-'}</td>
+                    <td>${u.role}</td>
+                    <td>${u.verification_status || 'نشط'}</td>
+                    <td><button class="btn-action btn-block" onclick="toggleUserBlock('${u.id}', '${u.verification_status}')">تبديل الحالة</button></td>
+                </tr>
+            `).join('');
+        }
+
+        async function toggleUserBlock(userId, currentStatus) {
+            const newStatus = (currentStatus === 'blocked') ? 'verified' : 'blocked';
+            await supabaseClient.from('profiles').update({ verification_status: newStatus }).eq('id', userId);
+            loadAllUsers();
+        }
+    </script>
 </body>
 </html>
