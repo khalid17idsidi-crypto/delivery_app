@@ -8,6 +8,13 @@ import requests
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+
+# ربط مجلد الملفات الثابتة (إذا كان اسم المجلد لديك static أو public)
+app.mount(
+    "/static", StaticFiles(directory="templates"), name="static"
+)
+
 from pydantic import BaseModel
 from supabase import create_client, Client
 
