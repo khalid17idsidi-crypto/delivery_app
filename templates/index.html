@@ -1,126 +1,26 @@
-<!DOCTYPE html>
-<html lang="ar" dir="rtl" id="htmlRoot">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title id="appMetaTitle">نتسخر ليك...كازا - خدمة التوصيل الذكية</title>
-
-    <meta name="theme-color" content="#10b981" />
-    <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    
-    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
-
-    <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
-    <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />
-
-    <script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.min.js"></script>
-    <link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.css" type="text/css" />
-
-    <script src="https://unpkg.com/@mapbox/mapbox-gl-language@1.0.1/index.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.8/dist/umd/supabase.min.js"></script>
-
-    <style>
-      :root {
-        --primary: #10b981; --primary-dark: #059669; --bg-dark: #0f172a; --card-bg: #1e293b;
-        --text-main: #f8fafc; --text-muted: #94a3b8; --border: rgba(255, 255, 255, 0.1);
-        --danger: #ef4444; --warning: #f59e0b; --accent-green: #a3e635;
-      }
-      * { box-sizing: border-box; margin: 0; padding: 0; font-family: "Tajawal", sans-serif; text-rendering: optimizeLegibility; }
-      body {
-        background: var(--bg-dark); color: var(--text-main); display: flex;
-        justify-content: center; min-height: 100vh; overflow-y: auto; -webkit-tap-highlight-color: transparent;
-        direction: rtl; text-align: right;
-      }
-      .app-container {
-        width: 100%; max-width: 480px; min-height: 100vh; background: var(--bg-dark);
-        position: relative; display: flex; flex-direction: column; padding-bottom: 70px;
-      }
-      .offline-banner { display: none; background: var(--danger); color: white; text-align: center; font-size: 11px; font-weight: bold; padding: 6px; z-index: 1002; }
-      .location-overlay {
-        position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: var(--bg-dark);
-        z-index: 99999; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 30px; text-align: center;
-      }
-      .location-icon-box {
-        width: 100px; height: 100px; background: rgba(16, 185, 129, 0.1); border: 2px solid var(--primary);
-        border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 45px;
-        margin-bottom: 20px; box-shadow: 0 0 25px rgba(16, 185, 129, 0.3); animation: pulse 2s infinite;
-      }
-      @keyframes pulse {
-        0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
-        70% { transform: scale(1.05); box-shadow: 0 0 0 15px rgba(16, 185, 129, 0); }
-        100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
-      }
-      .location-overlay h2 { font-size: 18px; font-weight: 800; color: var(--primary); margin-bottom: 10px; }
-      .location-overlay p { font-size: 12px; color: var(--text-muted); line-height: 1.6; margin-bottom: 25px; }
-      .app-header {
-        background: var(--card-bg); padding: 12px 16px; display: flex;
-        justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); z-index: 1001; position: sticky; top: 0;
-      }
-      .app-title { font-size: 16px; font-weight: 900; color: var(--primary); display: flex; align-items: center; gap: 8px; cursor: pointer; }
-      .hamburger-btn { background: transparent; border: none; color: var(--text-main); font-size: 24px; cursor: pointer; padding: 2px 8px; border-radius: 8px; }
-      .driver-status-toggle {
-        display: none; align-items: center; background: rgba(255, 255, 255, 0.1);
-        border-radius: 20px; padding: 3px 10px; cursor: pointer; font-size: 11px
-<script>
-  function requestUserLocationPermission() {
-    // تأكد بلي الـ ID ديال الـ Overlay عندك فـ HTML مطابق لـ 'locationOverlay'
-    const overlay = document.getElementById('locationOverlay') || document.querySelector('.location-overlay');
-    
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const lat = position.coords.latitude;
-          const lng = position.coords.longitude;
-          
-          // حفظ الإحداثيات محلياً
-          localStorage.setItem('user_lat', lat);
-          localStorage.setItem('user_lng', lng);
-          
-          // إخفاء نافذة طلب الموقع
-          if (overlay) {
-            overlay.style.display = 'none';
-          }
-          
-          // تهيئة الخريطة بالإحداثيات الحالية للمستخدم في كازا
-          if (typeof initMap === 'function') {
-            initMap(lng, lat);
-          }
-        },
-        (error) => {
-          console.warn("خطأ في تحديد الموقع عبر GPS:", error.message);
-          
-          // إحداثيات افتراضية وسط الدار البيضاء كاحتياط
-          const defaultLat = 33.5731;
-          const defaultLng = -7.5898;
-          
-          localStorage.setItem('user_lat', defaultLat);
-          localStorage.setItem('user_lng', defaultLng);
-          
-          if (overlay) {
-            overlay.style.display = 'none';
-          }
-          
-          if (typeof initMap === 'function') {
-            initMap(defaultLng, defaultLat);
-          }
-        },
-        { 
-          enableHighAccuracy: true, 
-          timeout: 10000, 
-          maximumAge: 0 
+// الدالة الأصلية بجميع تنبيهاتها وميزاتها
+      function requestUserLocationPermission() {
+        const overlay = document.getElementById("locationOverlay");
+        if (!navigator.geolocation) {
+          if (overlay) overlay.style.display = "none";
+          showAppToast("تنبيه", "ميزة تحديد الموقع غير مدعومة في متصفحك.");
+          return;
         }
-      );
-    } else {
-      alert("المتصفح ديالك ما كيدعمش تحديد الموقع الجغرافي.");
-    }
-  }
-
-  // استدعاء الدالة تلقائياً عند تحميل الصفحة إذا كانت نافذة الموقع ظاهرة
-  window.addEventListener('DOMContentLoaded', () => {
-    // يمكنك ربطها بزيارة الصفحة أو بزر الطلب
-  });
-</script>window.onerror = function(msg, url, line) {
-    alert("خطأ: " + msg + " في السطر: " + line);
-};
-
+        navigator.geolocation.getCurrentPosition(pos => {
+          userCurrentLat = pos.coords.latitude;
+          userCurrentLng = pos.coords.longitude;
+          if (overlay) overlay.style.display = "none";
+          if (mapboxInstance) {
+            mapboxInstance.resize();
+            mapboxInstance.setCenter([userCurrentLng, userCurrentLat]);
+            if (deliveryMarker) {
+              deliveryMarker.setLngLat([userCurrentLng, userCurrentLat]);
+            }
+            updateCoordsDisplay(userCurrentLat, userCurrentLng);
+          }
+          showAppToast("تم بنجاح 📍", "تم تحديد موقعك الجغرافي بنجاح.");
+        }, (err) => {
+          if (overlay) overlay.style.display = "none";
+          showAppToast("تنبيه موقع GPS", "يرجى السماح بالوصول للموقع من إعدادات المتصفح.");
+        }, { enableHighAccuracy: true });
+      }
