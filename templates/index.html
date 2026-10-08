@@ -62,3 +62,62 @@
       .driver-status-toggle {
         display: none; align-items: center; background: rgba(255, 255, 255, 0.1);
         border-radius: 20px; padding: 3px 10px; cursor: pointer; font-size: 11px
+<script>
+  function requestUserLocationPermission() {
+    // تأكد بلي الـ ID ديال الـ Overlay عندك فـ HTML مطابق لـ 'locationOverlay'
+    const overlay = document.getElementById('locationOverlay') || document.querySelector('.location-overlay');
+    
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const lat = position.coords.latitude;
+          const lng = position.coords.longitude;
+          
+          // حفظ الإحداثيات محلياً
+          localStorage.setItem('user_lat', lat);
+          localStorage.setItem('user_lng', lng);
+          
+          // إخفاء نافذة طلب الموقع
+          if (overlay) {
+            overlay.style.display = 'none';
+          }
+          
+          // تهيئة الخريطة بالإحداثيات الحالية للمستخدم في كازا
+          if (typeof initMap === 'function') {
+            initMap(lng, lat);
+          }
+        },
+        (error) => {
+          console.warn("خطأ في تحديد الموقع عبر GPS:", error.message);
+          
+          // إحداثيات افتراضية وسط الدار البيضاء كاحتياط
+          const defaultLat = 33.5731;
+          const defaultLng = -7.5898;
+          
+          localStorage.setItem('user_lat', defaultLat);
+          localStorage.setItem('user_lng', defaultLng);
+          
+          if (overlay) {
+            overlay.style.display = 'none';
+          }
+          
+          if (typeof initMap === 'function') {
+            initMap(defaultLng, defaultLat);
+          }
+        },
+        { 
+          enableHighAccuracy: true, 
+          timeout: 10000, 
+          maximumAge: 0 
+        }
+      );
+    } else {
+      alert("المتصفح ديالك ما كيدعمش تحديد الموقع الجغرافي.");
+    }
+  }
+
+  // استدعاء الدالة تلقائياً عند تحميل الصفحة إذا كانت نافذة الموقع ظاهرة
+  window.addEventListener('DOMContentLoaded', () => {
+    // يمكنك ربطها بزيارة الصفحة أو بزر الطلب
+  });
+</script>
